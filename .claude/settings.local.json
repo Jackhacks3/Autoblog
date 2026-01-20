@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git config:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(python -m json.tool:*)",
+      "Bash(npm install)",
+      "Bash(npm run type-check:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run build:*)",
+      "Bash(node -e:*)",
+      "Bash(npm run develop:*)",
+      "Bash(timeout /t 30 /nobreak)",
+      "Bash(ping:*)",
+      "Bash(npm install:*)",
+      "Bash(git init:*)",
+      "Bash(git remote add:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

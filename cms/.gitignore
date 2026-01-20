@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build
+build/
+.cache/
+
+# Environment
+.env
+.env.local
+
+# Database (SQLite)
+.tmp/
+
+# Uploads (if using local storage)
+public/uploads/
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Strapi
+exports/
+.strapi-updater.json

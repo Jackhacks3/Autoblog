@@ -1,0 +1,23 @@
+{
+  "collectionName": "components_shared_social_links",
+  "info": {
+    "displayName": "Social Links",
+    "icon": "link",
+    "description": "Social media profile links"
+  },
+  "options": {},
+  "attributes": {
+    "linkedin": {
+      "type": "string",
+      "required": false
+    },
+    "twitter": {
+      "type": "string",
+      "required": false
+    },
+    "github": {
+      "type": "string",
+      "required": false
+    }
+  }
+}
