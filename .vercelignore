@@ -1,7 +1,8 @@
 # Ignore CMS and automation for Vercel deployment
 # (Only deploy the Next.js frontend)
-cms/
-automation/
+# Use leading slash to only match root-level directories
+/cms/
+/automation/
 *.md
 !README.md
 .turbo
