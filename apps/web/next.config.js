@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Enable standalone output for Docker deployments
+  output: 'standalone',
+
   images: {
     remotePatterns: [
       {
@@ -18,6 +21,14 @@ const nextConfig = {
         protocol: 'http',
         hostname: 'localhost',
         port: '1337',
+      },
+      {
+        protocol: 'https',
+        hostname: 'oaidalleapiprodscus.blob.core.windows.net',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.oaiusercontent.com',
       },
     ],
   },
@@ -45,3 +56,4 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
+// Trigger deploy

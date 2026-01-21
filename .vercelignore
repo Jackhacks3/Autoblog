@@ -1,0 +1,11 @@
+# Ignore CMS and automation for Vercel deployment
+# (Only deploy the Next.js frontend)
+cms/
+automation/
+*.md
+!README.md
+.turbo
+docker-compose.yml
+Dockerfile
+.dockerignore
+scripts/

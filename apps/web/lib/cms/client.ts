@@ -191,11 +191,11 @@ function transformArticle(article: StrapiArticle): Article {
   let content = article.content || '';
   if (!content && article.blocks && Array.isArray(article.blocks)) {
     // Extract body from shared.rich-text blocks
-    content = article.blocks
-      .filter((block: { __component?: string; body?: string }) =>
-        block.__component === 'shared.rich-text' && block.body
-      )
-      .map((block: { body?: string }) => block.body)
+    type RichTextBlock = { __component?: string; body?: string };
+    const blocks = article.blocks as RichTextBlock[];
+    content = blocks
+      .filter((block) => block.__component === 'shared.rich-text' && block.body)
+      .map((block) => block.body)
       .join('\n\n');
   }
 
