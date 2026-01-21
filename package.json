@@ -15,7 +15,8 @@
     "clean": "turbo run clean && rm -rf node_modules",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "cms:dev": "npm run develop --workspace=cms",
-    "web:dev": "npm run dev --workspace=apps/web"
+    "web:dev": "npm run dev --workspace=apps/web",
+    "web:build": "npm run build --workspace=apps/web"
   },
   "devDependencies": {
     "prettier": "^3.2.4",
