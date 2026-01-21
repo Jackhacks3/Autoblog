@@ -103,11 +103,11 @@ async function fetchArticleContent(url: string): Promise<{ title: string; conten
 
   // Simple extraction - get title and body text
   const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-  const title = titleMatch ? titleMatch[1].trim() : 'Untitled';
+  const title = titleMatch?.[1]?.trim() ?? 'Untitled';
 
   // Strip HTML tags for content
   const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-  const bodyHtml = bodyMatch ? bodyMatch[1] : html;
+  const bodyHtml = bodyMatch?.[1] ?? html;
   const content = bodyHtml
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -470,8 +470,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     } else {
       // Check for URLs
       const urls = extractUrls(text);
-      if (urls.length > 0) {
-        await handleUrl(chatId, urls[0]);
+      const firstUrl = urls[0];
+      if (firstUrl) {
+        await handleUrl(chatId, firstUrl);
       } else if (pendingAnalyses.has(chatId)) {
         await handleConfirmation(chatId, text);
       } else {

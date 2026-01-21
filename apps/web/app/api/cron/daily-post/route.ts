@@ -62,15 +62,18 @@ function selectTopic(): { topic: string; pillar: string } {
 
   let selectedPillar: keyof typeof TOPICS = 'ai-automation';
   for (let i = 0; i < pillars.length; i++) {
-    random -= weights[i];
-    if (random <= 0) {
-      selectedPillar = pillars[i];
+    const weight = weights[i] ?? 0;
+    const pillar = pillars[i];
+    random -= weight;
+    if (random <= 0 && pillar) {
+      selectedPillar = pillar;
       break;
     }
   }
 
   const topics = TOPICS[selectedPillar];
-  const topic = topics[Math.floor(Math.random() * topics.length)];
+  const randomIndex = Math.floor(Math.random() * topics.length);
+  const topic = topics[randomIndex] ?? topics[0] ?? 'AI Automation Best Practices';
 
   return { topic, pillar: selectedPillar };
 }
