@@ -57,3 +57,14 @@ automation/n8n-data/
 
 # Local development
 *.local
+
+# Render deployment env (credential files)
+render-env.txt
+*-env.txt
+
+# External skill repositories
+marketingskills/
+.claude/skills/
+
+# Windows artifacts
+nul
