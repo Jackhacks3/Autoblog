@@ -21,9 +21,6 @@
     "react-router-dom": "^6.30.3",
     "styled-components": "^6.3.8"
   },
-  "optionalDependencies": {
-    "better-sqlite3": "11.7.0"
-  },
   "devDependencies": {
     "@strapi/typescript-utils": "5.6.0",
     "typescript": "5.3.3"
