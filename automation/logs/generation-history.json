@@ -1,0 +1,21 @@
+[
+  {
+    "date": "2026-01-21",
+    "topic": "How to Automate Your Business Workflows with AI in 2026",
+    "pillar": "ai-automation",
+    "template": "how-to-guide",
+    "slug": "failed",
+    "success": false,
+    "error": "Unknown content pillar: ai-automation",
+    "duration": 0
+  },
+  {
+    "date": "2026-01-21",
+    "topic": "How to Automate Your Business Workflows with AI in 2026",
+    "pillar": "ai-tools",
+    "template": "how-to-guide",
+    "slug": "automate-business-workflows-ai-2026",
+    "success": true,
+    "duration": 102299
+  }
+]

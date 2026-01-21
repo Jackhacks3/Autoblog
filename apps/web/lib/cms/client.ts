@@ -132,14 +132,17 @@ function transformSEO(seo: StrapiSEO | null): SEO | null {
   };
 }
 
-function transformAuthor(author: StrapiAuthor | null): Author | null {
+function transformAuthor(author: StrapiAuthor | null | undefined): Author | null {
   if (!author) return null;
+
+  // Generate slug from name if not provided (Strapi Cloud doesn't have slug)
+  const slug = author.slug || author.name?.toLowerCase().replace(/\s+/g, '-') || '';
 
   return {
     id: author.documentId,
     name: author.name,
-    slug: author.slug,
-    avatar: transformMedia(author.avatar),
+    slug,
+    avatar: transformMedia(author.avatar || null),
     bio: author.bio || '',
     role: author.role || '',
     expertise: author.expertise || [],
@@ -148,11 +151,11 @@ function transformAuthor(author: StrapiAuthor | null): Author | null {
       twitter: author.socialLinks?.twitter || undefined,
       github: author.socialLinks?.github || undefined,
     },
-    isAI: author.isAI,
+    isAI: author.isAI ?? false,
   };
 }
 
-function transformCategory(category: StrapiCategory | null): Category | null {
+function transformCategory(category: StrapiCategory | null | undefined): Category | null {
   if (!category) return null;
 
   return {
@@ -161,11 +164,11 @@ function transformCategory(category: StrapiCategory | null): Category | null {
     slug: category.slug,
     description: category.description || '',
     color: category.color || '#0ea5e9',
-    icon: category.icon,
+    icon: category.icon || null,
     parentCategory: category.parentCategory
       ? transformCategory(category.parentCategory)
       : null,
-    seo: transformSEO(category.seo),
+    seo: transformSEO(category.seo || null),
   };
 }
 
@@ -179,22 +182,41 @@ function transformTag(tag: StrapiTag): Tag {
 }
 
 function transformArticle(article: StrapiArticle): Article {
+  // Handle Strapi Cloud vs self-hosted schema differences
+  // Strapi Cloud: description, cover, blocks
+  // Self-hosted: excerpt, featuredImage, content
+  const excerpt = article.excerpt || article.description || '';
+
+  // Extract content from blocks (Strapi Cloud) or use content field (self-hosted)
+  let content = article.content || '';
+  if (!content && article.blocks && Array.isArray(article.blocks)) {
+    // Extract body from shared.rich-text blocks
+    content = article.blocks
+      .filter((block: { __component?: string; body?: string }) =>
+        block.__component === 'shared.rich-text' && block.body
+      )
+      .map((block: { body?: string }) => block.body)
+      .join('\n\n');
+  }
+
+  const featuredImage = article.featuredImage || article.cover || null;
+
   return {
     id: article.documentId,
     slug: article.slug,
     title: article.title,
-    excerpt: article.excerpt,
-    content: article.content,
-    featuredImage: transformMedia(article.featuredImage),
+    excerpt,
+    content,
+    featuredImage: transformMedia(featuredImage),
     author: transformAuthor(article.author),
     category: transformCategory(article.category),
     tags: (article.tags || []).map(transformTag),
     publishedAt: article.publishedAt,
     lastUpdated: article.lastUpdated || article.updatedAt,
-    readingTime: article.readingTime || calculateReadingTime(article.content),
-    status: article.status,
-    seo: transformSEO(article.seo),
-    aiGenerated: article.aiGenerated,
+    readingTime: article.readingTime || calculateReadingTime(content),
+    status: article.status || 'published',
+    seo: transformSEO(article.seo || null),
+    aiGenerated: article.aiGenerated ?? false,
   };
 }
 
@@ -219,14 +241,13 @@ export async function getArticles(
   query.set('pagination[page]', String(page));
   query.set('pagination[pageSize]', String(pageSize));
   query.set('sort', sort);
-  query.set('populate[author][populate]', 'avatar,socialLinks');
-  query.set('populate[category][populate]', 'seo');
-  query.set('populate[tags]', '*');
-  query.set('populate[featuredImage]', '*');
-  query.set('populate[seo][populate]', 'ogImage');
+  // Populate relations - works for both Strapi Cloud and self-hosted
+  query.set('populate', '*');
 
-  // Filter by status
-  query.set('filters[status][$eq]', status);
+  // Only filter by status if explicitly requested (Strapi Cloud doesn't have status field)
+  if (status && status !== 'published') {
+    query.set('filters[status][$eq]', status);
+  }
 
   // Filter by category slug
   if (category) {
@@ -269,12 +290,7 @@ export async function getArticles(
 export async function getArticleBySlug(slug: string): Promise<Article | null> {
   const query = new URLSearchParams();
   query.set('filters[slug][$eq]', slug);
-  query.set('populate[author][populate]', 'avatar,socialLinks');
-  query.set('populate[category][populate]', 'seo');
-  query.set('populate[tags]', '*');
-  query.set('populate[featuredImage]', '*');
-  query.set('populate[seo][populate]', 'ogImage');
-  query.set('populate[reviewedBy][populate]', 'avatar');
+  query.set('populate', '*');
 
   try {
     const response = await strapiFetch<StrapiResponse<StrapiArticle[]>>(
@@ -312,12 +328,9 @@ export async function getRelatedArticles(
   query.set('pagination[page]', '1');
   query.set('pagination[pageSize]', String(limit + 1));
   query.set('sort', 'publishedAt:desc');
-  query.set('filters[status][$eq]', 'published');
   query.set('filters[category][slug][$eq]', categorySlug);
   query.set('filters[slug][$ne]', currentSlug);
-  query.set('populate[author][populate]', 'avatar');
-  query.set('populate[category]', '*');
-  query.set('populate[featuredImage]', '*');
+  query.set('populate', '*');
 
   try {
     const response = await strapiFetch<StrapiResponse<StrapiArticle[]>>(
@@ -464,7 +477,6 @@ export function calculateReadingTime(content: string): number {
 export async function getAllArticleSlugs(): Promise<string[]> {
   const query = new URLSearchParams();
   query.set('fields[0]', 'slug');
-  query.set('filters[status][$eq]', 'published');
   query.set('pagination[pageSize]', '1000');
 
   try {

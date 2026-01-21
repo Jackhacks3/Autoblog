@@ -28,41 +28,50 @@ export interface StrapiDocument {
 }
 
 // Raw Strapi types (as returned from API)
+// Compatible with both Strapi Cloud (simpler) and self-hosted (full) schemas
 export interface StrapiArticle extends StrapiDocument {
   title: string;
   slug: string;
-  excerpt: string;
-  content: string;
-  featuredImage: StrapiMedia | null;
-  author: StrapiAuthor | null;
-  category: StrapiCategory | null;
-  tags: StrapiTag[];
-  status: 'draft' | 'in_review' | 'scheduled' | 'published';
-  seo: StrapiSEO | null;
-  readingTime: number | null;
-  lastUpdated: string | null;
-  aiGenerated: boolean;
+  // Strapi Cloud uses 'description', self-hosted uses 'excerpt'
+  description?: string;
+  excerpt?: string;
+  // Strapi Cloud uses 'blocks', self-hosted uses 'content'
+  blocks?: unknown[];
+  content?: string;
+  // Strapi Cloud uses 'cover', self-hosted uses 'featuredImage'
+  cover?: StrapiMedia | null;
+  featuredImage?: StrapiMedia | null;
+  author?: StrapiAuthor | null;
+  category?: StrapiCategory | null;
+  tags?: StrapiTag[];
+  status?: 'draft' | 'in_review' | 'scheduled' | 'published';
+  seo?: StrapiSEO | null;
+  readingTime?: number | null;
+  lastUpdated?: string | null;
+  aiGenerated?: boolean;
 }
 
 export interface StrapiAuthor extends StrapiDocument {
   name: string;
-  slug: string;
-  avatar: StrapiMedia | null;
-  bio: string | null;
-  role: string | null;
-  expertise: string[] | null;
-  socialLinks: StrapiSocialLinks | null;
-  isAI: boolean;
+  // Strapi Cloud uses 'email' only, self-hosted has more fields
+  email?: string;
+  slug?: string;
+  avatar?: StrapiMedia | null;
+  bio?: string | null;
+  role?: string | null;
+  expertise?: string[] | null;
+  socialLinks?: StrapiSocialLinks | null;
+  isAI?: boolean;
 }
 
 export interface StrapiCategory extends StrapiDocument {
   name: string;
   slug: string;
-  description: string | null;
-  color: string;
-  icon: string | null;
-  parentCategory: StrapiCategory | null;
-  seo: StrapiSEO | null;
+  description?: string | null;
+  color?: string;
+  icon?: string | null;
+  parentCategory?: StrapiCategory | null;
+  seo?: StrapiSEO | null;
 }
 
 export interface StrapiTag extends StrapiDocument {

@@ -15,7 +15,31 @@
       "Bash(npm install:*)",
       "Bash(git init:*)",
       "Bash(git remote add:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nInitial commit: AUTOBLOG automated marketing blog system\n\nFeatures:\n- Next.js 14 frontend with App Router and TypeScript\n- Strapi 5.x CMS configuration with content types \\(Article, Author, Category, Tag\\)\n- Tailwind CSS styling with custom brand theme\n- SEO components \\(JSON-LD schema markup\\)\n- Blog listing and article detail pages\n- CMS client with full Strapi API integration\n- ISR \\(Incremental Static Regeneration\\) support\n- Loading states and error boundaries\n- Turborepo monorepo structure\n\nTech Stack:\n- Frontend: Next.js 14, TypeScript, Tailwind CSS\n- CMS: Strapi 5.6.0\n- Build: Turborepo\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(curl:*)",
+      "Bash(node scripts/seed-content.js:*)",
+      "Bash(dir /s /b \"C:\\\\Users\\\\jgewi\\\\OneDrive\\\\Attachments\\\\Desktop\\\\AUTOBLOG\\\\apps\")",
+      "Bash(findstr:*)",
+      "Bash(powershell:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout:*)",
+      "Bash(npm run telegram:*)",
+      "Bash(netstat:*)",
+      "Bash(docker ps:*)",
+      "Bash(tree:*)",
+      "Bash(dir \"C:\\\\Users\\\\jgewi\\\\OneDrive\\\\Attachments\\\\Desktop\\\\AUTOBLOG\\\\cms\\\\src\\\\api\" /b)",
+      "Bash(dir:*)",
+      "Bash(xcopy \"src\\\\api\\\\article\\\\content-types\\\\article\\\\schema.json\" \"dist\\\\src\\\\api\\\\article\\\\content-types\\\\article\"\" /Y && xcopy \"srcapiauthorcontent-typesauthorschema.json\" \"distsrcapiauthorcontent-typesauthor\"\" /Y)",
+      "Bash(xcopy \"src\\\\api\\\\category\\\\content-types\\\\category\\\\schema.json\" \"dist\\\\src\\\\api\\\\category\\\\content-types\\\\category\"\" /Y && xcopy \"srcapitagcontent-typestagschema.json\" \"distsrcapitagcontent-typestag\"\" /Y)",
+      "Bash(copy \"src\\\\api\\\\article\\\\content-types\\\\article\\\\schema.json\" \"dist\\\\src\\\\api\\\\article\\\\content-types\\\\article\\\\schema.json\")",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:optaimum.com)",
+      "Bash(npm run daily:dry-run:*)",
+      "Bash(npm run daily:*)",
+      "WebFetch(domain:methodical-star-1c2c084d0b.strapiapp.com)",
+      "WebFetch(domain:sso-v3-jxe9udvtr-jackhacks3s-projects.vercel.app)"
     ]
   }
 }

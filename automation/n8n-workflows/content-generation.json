@@ -1,0 +1,219 @@
+{
+  "name": "AUTOBLOG Content Generation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Daily Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 8192, system: $json.systemPrompt, messages: [{ role: 'user', content: $json.userPrompt }] }) }}"
+      },
+      "id": "claude-generate",
+      "name": "Generate with Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "claude-api",
+          "name": "Claude API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Claude response and extract JSON\nconst response = $input.first().json;\nconst content = response.content[0].text;\n\n// Extract JSON from response\nconst jsonMatch = content.match(/```json\\n([\\s\\S]*?)\\n```/);\nlet article;\n\nif (jsonMatch) {\n  article = JSON.parse(jsonMatch[1]);\n} else {\n  article = JSON.parse(content);\n}\n\n// Ensure description is max 80 chars\narticle.description = article.description?.slice(0, 80) || article.excerpt?.slice(0, 80);\n\n// Calculate reading time\nconst wordCount = article.content.split(/\\s+/).length;\narticle.readingTime = Math.max(1, Math.ceil(wordCount / 200));\n\nreturn [{ json: article }];"
+      },
+      "id": "parse-response",
+      "name": "Parse Claude Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/images/generations",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'dall-e-3', prompt: 'Professional blog header image for: ' + $json.title + '. Style: Modern, clean, minimalist corporate. Colors: Professional blues and teals. NO text, NO logos, NO faces.', n: 1, size: '1792x1024', quality: 'standard' }) }}"
+      },
+      "id": "dalle-generate",
+      "name": "Generate Hero Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "openai-api",
+          "name": "OpenAI API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.STRAPI_URL }}/api/articles",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ data: { title: $('Parse Claude Response').first().json.title, description: $('Parse Claude Response').first().json.description, slug: $('Parse Claude Response').first().json.slug, status: 'draft', aiGenerated: true, readingTime: $('Parse Claude Response').first().json.readingTime } }) }}"
+      },
+      "id": "strapi-create",
+      "name": "Create in Strapi",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "strapi-token",
+          "name": "Strapi API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "#content-automation",
+        "text": "=🚀 New article generated!\n\n*Title:* {{ $json.data.title }}\n*Slug:* {{ $json.data.slug }}\n*Status:* {{ $json.data.status }}\n\nReview in Strapi admin panel."
+      },
+      "id": "slack-notify",
+      "name": "Notify Team",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [1540, 300],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-bot",
+          "name": "Slack Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build prompts for article generation\nconst topics = [\n  { topic: 'Enterprise LLM Integration Best Practices', pillar: 'ai-automation' },\n  { topic: 'Real World Asset Tokenization Trends', pillar: 'digital-assets' },\n  { topic: 'Measuring AI Transformation ROI', pillar: 'consulting' },\n  { topic: 'Latest AI Model Announcements Analysis', pillar: 'industry-news' }\n];\n\n// Select topic based on day of week\nconst dayIndex = new Date().getDay();\nconst selected = topics[dayIndex % topics.length];\n\nconst systemPrompt = `You are an expert content writer for AUTOBLOG. Generate a high-quality, SEO-optimized article.\n\nReturn JSON with: title (50-60 chars), slug, description (max 80 chars), excerpt (150-200 chars), content (markdown), tags (array), seo { metaTitle, metaDescription }`;\n\nconst userPrompt = `Generate an article about: ${selected.topic}\\nContent pillar: ${selected.pillar}\\nTarget length: 1200-1500 words`;\n\nreturn [{ json: { systemPrompt, userPrompt, ...selected } }];"
+      },
+      "id": "build-prompts",
+      "name": "Build Prompts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    }
+  ],
+  "connections": {
+    "Daily Schedule": {
+      "main": [
+        [
+          {
+            "node": "Build Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Prompts": {
+      "main": [
+        [
+          {
+            "node": "Generate with Claude",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate with Claude": {
+      "main": [
+        [
+          {
+            "node": "Parse Claude Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Claude Response": {
+      "main": [
+        [
+          {
+            "node": "Generate Hero Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Hero Image": {
+      "main": [
+        [
+          {
+            "node": "Create in Strapi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create in Strapi": {
+      "main": [
+        [
+          {
+            "node": "Notify Team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "content-automation"
+    }
+  ],
+  "triggerCount": 1,
+  "meta": {
+    "instanceId": "autoblog-content-engine"
+  }
+}

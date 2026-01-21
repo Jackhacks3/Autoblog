@@ -4,7 +4,15 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
+        hostname: '**.strapiapp.com',
+      },
+      {
+        protocol: 'https',
         hostname: '**.strapi.io',
+      },
+      {
+        protocol: 'https',
+        hostname: 'methodical-star-1c2c084d0b.strapiapp.com',
       },
       {
         protocol: 'http',
