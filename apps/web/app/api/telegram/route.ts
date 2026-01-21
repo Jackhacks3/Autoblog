@@ -2,7 +2,7 @@
  * Telegram Webhook API Route
  *
  * Receives messages from Telegram and processes them.
- * Works on Vercel serverless functions.
+ * Works on Vercel serverless functions with stateless design.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -28,37 +28,59 @@ interface TelegramUpdate {
     text?: string;
     date: number;
   };
+  callback_query?: {
+    id: string;
+    from: { id: number; first_name: string; username?: string };
+    message?: { chat: { id: number }; message_id: number };
+    data?: string;
+  };
 }
 
-interface TelegramMessage {
-  chat_id: number;
-  text: string;
-  parse_mode?: 'HTML' | 'Markdown';
-}
-
-// Store pending analyses (in production, use Redis or a database)
-const pendingAnalyses = new Map<number, {
+interface PendingData {
   topic: string;
   pillar: string;
   template: string;
   keywords: string[];
-  timestamp: number;
-}>();
+}
+
+/**
+ * Encode pending data to base64 for stateless storage
+ */
+function encodePendingData(data: PendingData): string {
+  return Buffer.from(JSON.stringify(data)).toString('base64');
+}
+
+/**
+ * Decode pending data from base64
+ */
+function decodePendingData(encoded: string): PendingData | null {
+  try {
+    return JSON.parse(Buffer.from(encoded, 'base64').toString('utf-8'));
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Send a message via Telegram API
  */
-async function sendTelegramMessage(chatId: number, text: string): Promise<void> {
+async function sendTelegramMessage(chatId: number, text: string, replyMarkup?: object): Promise<void> {
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+
+  const body: Record<string, unknown> = {
+    chat_id: chatId,
+    text,
+    parse_mode: 'HTML',
+  };
+
+  if (replyMarkup) {
+    body.reply_markup = replyMarkup;
+  }
 
   await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text,
-      parse_mode: 'HTML',
-    } as TelegramMessage),
+    body: JSON.stringify(body),
   });
 }
 
@@ -79,10 +101,26 @@ async function sendTypingAction(chatId: number): Promise<void> {
 }
 
 /**
+ * Answer callback query
+ */
+async function answerCallbackQuery(callbackQueryId: string, text?: string): Promise<void> {
+  const url = `https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`;
+
+  await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      callback_query_id: callbackQueryId,
+      text,
+    }),
+  });
+}
+
+/**
  * Check if user is authorized
  */
 function isAuthorized(userId: number): boolean {
-  if (ALLOWED_USERS.length === 0) return true; // No whitelist = allow all
+  if (ALLOWED_USERS.length === 0) return true;
   return ALLOWED_USERS.includes(userId);
 }
 
@@ -101,11 +139,9 @@ async function fetchArticleContent(url: string): Promise<{ title: string; conten
   const response = await fetch(url);
   const html = await response.text();
 
-  // Simple extraction - get title and body text
   const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
   const title = titleMatch?.[1]?.trim() ?? 'Untitled';
 
-  // Strip HTML tags for content
   const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
   const bodyHtml = bodyMatch?.[1] ?? html;
   const content = bodyHtml
@@ -114,7 +150,7 @@ async function fetchArticleContent(url: string): Promise<{ title: string; conten
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-    .slice(0, 5000); // Limit content length
+    .slice(0, 5000);
 
   return { title, content };
 }
@@ -161,11 +197,14 @@ Return JSON only:
   });
 
   const data = await response.json();
-  const text = data.content[0].text;
 
-  // Extract JSON from response
+  if (!data.content?.[0]?.text) {
+    throw new Error(`Claude API error: ${JSON.stringify(data)}`);
+  }
+
+  const text = data.content[0].text;
   const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('Failed to parse analysis');
+  if (!jsonMatch) throw new Error('Failed to parse analysis response');
 
   return JSON.parse(jsonMatch[0]);
 }
@@ -210,10 +249,14 @@ Return JSON only:
   });
 
   const data = await response.json();
-  const text = data.content[0].text;
 
+  if (!data.content?.[0]?.text) {
+    throw new Error(`Claude API error: ${JSON.stringify(data)}`);
+  }
+
+  const text = data.content[0].text;
   const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('Failed to parse article');
+  if (!jsonMatch) throw new Error('Failed to parse article response');
 
   return JSON.parse(jsonMatch[0]);
 }
@@ -247,6 +290,11 @@ async function publishToStrapi(article: {
   });
 
   const data = await response.json();
+
+  if (!data.data?.documentId) {
+    throw new Error(`Strapi error: ${JSON.stringify(data)}`);
+  }
+
   return { documentId: data.data.documentId };
 }
 
@@ -262,12 +310,12 @@ I generate original blog content inspired by articles you share.
 <b>How to use:</b>
 1. Send me any article URL
 2. I'll analyze it and suggest a topic
-3. Reply "yes" to generate & publish
+3. Tap the button to generate & publish
 
 <b>Commands:</b>
 /start - This message
 /help - Get help
-/status - Check status
+/status - Check system status
 
 Send a URL to begin!
   `.trim();
@@ -286,9 +334,8 @@ async function handleHelp(chatId: number): Promise<void> {
 Send any article URL and I'll create original content inspired by it.
 
 <b>After analysis:</b>
-• Reply "yes" to generate
-• Reply "no" to cancel
-• Send custom topic to override
+• Tap "Generate Article" button to create
+• Or send a new URL to analyze something else
 
 <b>Content types:</b>
 • AI & Automation
@@ -303,16 +350,18 @@ Send any article URL and I'll create original content inspired by it.
  * Handle /status command
  */
 async function handleStatus(chatId: number): Promise<void> {
-  const pending = pendingAnalyses.get(chatId);
-  const hasPending = pending && (Date.now() - pending.timestamp) < 15 * 60 * 1000;
+  const strapiOk = !!STRAPI_URL && !!STRAPI_API_TOKEN;
+  const aiOk = !!ANTHROPIC_API_KEY;
 
   const message = `
 <b>System Status</b>
 
 Bot: ✅ Online
-Strapi: ${STRAPI_URL ? '✅ Connected' : '❌ Not configured'}
-AI: ${ANTHROPIC_API_KEY ? '✅ Ready' : '❌ Not configured'}
-Pending: ${hasPending ? 'Yes - reply yes/no' : 'None'}
+Strapi: ${strapiOk ? '✅ Configured' : '❌ Missing STRAPI_URL or STRAPI_API_TOKEN'}
+AI: ${aiOk ? '✅ Configured' : '❌ Missing ANTHROPIC_API_KEY'}
+
+<b>Environment:</b>
+STRAPI_URL: ${STRAPI_URL ? STRAPI_URL.slice(0, 30) + '...' : 'Not set'}
   `.trim();
 
   await sendTelegramMessage(chatId, message);
@@ -333,14 +382,14 @@ async function handleUrl(chatId: number, url: string): Promise<void> {
 
     const analysis = await analyzeArticle(title, content);
 
-    // Store for confirmation
-    pendingAnalyses.set(chatId, {
+    // Encode the pending data for stateless confirmation
+    const pendingData: PendingData = {
       topic: analysis.topic,
       pillar: analysis.pillar,
       template: analysis.template,
       keywords: analysis.keywords,
-      timestamp: Date.now(),
-    });
+    };
+    const encoded = encodePendingData(pendingData);
 
     const message = `
 <b>Analysis Complete!</b>
@@ -356,35 +405,54 @@ ${escapeHtml(analysis.suggestedTitle)}
 <b>Key Points:</b>
 ${analysis.keyPoints.map(p => `• ${escapeHtml(p)}`).join('\n')}
 
-Reply <b>"yes"</b> to generate, or <b>"no"</b> to cancel.
+Tap the button below to generate and publish!
     `.trim();
 
-    await sendTelegramMessage(chatId, message);
+    // Send with inline keyboard button
+    await sendTelegramMessage(chatId, message, {
+      inline_keyboard: [[
+        { text: '✅ Generate Article', callback_data: `generate:${encoded}` },
+        { text: '❌ Cancel', callback_data: 'cancel' },
+      ]],
+    });
   } catch (error) {
-    await sendTelegramMessage(chatId, `❌ Error: ${(error as Error).message}`);
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    await sendTelegramMessage(chatId, `❌ Error analyzing URL: ${errorMsg}`);
   }
 }
 
 /**
- * Handle confirmation response
+ * Handle callback query (button press)
  */
-async function handleConfirmation(chatId: number, response: string): Promise<void> {
-  const pending = pendingAnalyses.get(chatId);
-
-  if (!pending || (Date.now() - pending.timestamp) > 15 * 60 * 1000) {
-    await sendTelegramMessage(chatId, 'No pending analysis. Send a URL to start.');
+async function handleCallbackQuery(
+  callbackQueryId: string,
+  chatId: number,
+  userId: number,
+  data: string
+): Promise<void> {
+  if (!isAuthorized(userId)) {
+    await answerCallbackQuery(callbackQueryId, '⛔ Not authorized');
     return;
   }
 
-  const lower = response.toLowerCase().trim();
-
-  if (lower === 'no' || lower === 'cancel') {
-    pendingAnalyses.delete(chatId);
+  if (data === 'cancel') {
+    await answerCallbackQuery(callbackQueryId, 'Cancelled');
     await sendTelegramMessage(chatId, '❌ Cancelled. Send a new URL to start over.');
     return;
   }
 
-  if (lower === 'yes' || lower === 'ok' || lower === 'generate') {
+  if (data.startsWith('generate:')) {
+    const encoded = data.replace('generate:', '');
+    const pending = decodePendingData(encoded);
+
+    if (!pending) {
+      await answerCallbackQuery(callbackQueryId, 'Invalid data');
+      await sendTelegramMessage(chatId, '❌ Error: Invalid generation data. Please send the URL again.');
+      return;
+    }
+
+    await answerCallbackQuery(callbackQueryId, 'Generating...');
+
     try {
       await sendTypingAction(chatId);
       await sendTelegramMessage(chatId, '✍️ Generating article... (this takes ~30 seconds)');
@@ -401,8 +469,6 @@ async function handleConfirmation(chatId: number, response: string): Promise<voi
 
       const { documentId } = await publishToStrapi(article);
 
-      pendingAnalyses.delete(chatId);
-
       const message = `
 <b>✅ Article Published!</b>
 
@@ -410,12 +476,15 @@ async function handleConfirmation(chatId: number, response: string): Promise<voi
 <b>Slug:</b> ${article.slug}
 <b>ID:</b> ${documentId}
 
-Your article is now live in Strapi!
+Your article is now in Strapi (as draft). Review and publish it in the admin panel.
+
+${STRAPI_URL}/admin
       `.trim();
 
       await sendTelegramMessage(chatId, message);
     } catch (error) {
-      await sendTelegramMessage(chatId, `❌ Error: ${(error as Error).message}`);
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      await sendTelegramMessage(chatId, `❌ Error: ${errorMsg}`);
     }
   }
 }
@@ -445,7 +514,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const update: TelegramUpdate = await request.json();
 
-    // Only process text messages
+    // Handle callback queries (button presses)
+    if (update.callback_query) {
+      const { id, from, message, data } = update.callback_query;
+      if (message && data) {
+        await handleCallbackQuery(id, message.chat.id, from.id, data);
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    // Handle text messages
     if (!update.message?.text) {
       return NextResponse.json({ ok: true });
     }
@@ -473,8 +551,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const firstUrl = urls[0];
       if (firstUrl) {
         await handleUrl(chatId, firstUrl);
-      } else if (pendingAnalyses.has(chatId)) {
-        await handleConfirmation(chatId, text);
       } else {
         await sendTelegramMessage(chatId, 'Send me an article URL to analyze.');
       }
@@ -494,5 +570,7 @@ export async function GET(): Promise<NextResponse> {
   return NextResponse.json({
     status: 'AUTOBLOG Telegram Webhook Active',
     bot: BOT_TOKEN ? 'Configured' : 'Not configured',
+    strapi: STRAPI_URL ? 'Configured' : 'Not configured',
+    ai: ANTHROPIC_API_KEY ? 'Configured' : 'Not configured',
   });
 }
