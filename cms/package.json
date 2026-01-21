@@ -15,12 +15,14 @@
     "@strapi/plugin-cloud": "5.6.0",
     "@strapi/plugin-users-permissions": "5.6.0",
     "@strapi/strapi": "5.6.0",
-    "better-sqlite3": "11.7.0",
     "pg": "8.13.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.30.3",
     "styled-components": "^6.3.8"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "11.7.0"
   },
   "devDependencies": {
     "@strapi/typescript-utils": "5.6.0",
