@@ -2,7 +2,7 @@
 /**
  * Setup Telegram Webhook
  *
- * Registers your Vercel URL as a webhook with Telegram.
+ * Registers your webhook URL with Telegram.
  *
  * Usage:
  *   node scripts/setup-telegram-webhook.js https://yourdomain.com
@@ -10,15 +10,24 @@
  *   node scripts/setup-telegram-webhook.js --delete  (to remove webhook)
  */
 
-require('dotenv').config();
+// Try to load dotenv if available (optional)
+try {
+  require('dotenv').config();
+} catch (e) {
+  // dotenv not installed, use environment variables directly
+}
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
 async function setWebhook(url, secret) {
   const apiUrl = `https://api.telegram.org/bot${BOT_TOKEN}/setWebhook`;
 
+  // Remove trailing slash from URL to avoid double slashes
+  const cleanUrl = url.replace(/\/+$/, '');
+  const webhookUrl = `${cleanUrl}/api/telegram`;
+
   const body = {
-    url: `${url}/api/telegram`,
+    url: webhookUrl,
     allowed_updates: ['message', 'callback_query'],
   };
 
@@ -26,7 +35,7 @@ async function setWebhook(url, secret) {
     body.secret_token = secret;
   }
 
-  console.log(`\n🔗 Setting webhook to: ${body.url}\n`);
+  console.log(`\n🔗 Setting webhook to: ${webhookUrl}\n`);
 
   const response = await fetch(apiUrl, {
     method: 'POST',
@@ -38,10 +47,10 @@ async function setWebhook(url, secret) {
 
   if (result.ok) {
     console.log('✅ Webhook set successfully!\n');
-    console.log('Telegram will now send messages to your Vercel app.\n');
+    console.log('Telegram will now send messages to your webhook endpoint.\n');
 
     if (secret) {
-      console.log('⚠️  Add this to your Vercel environment variables:');
+      console.log('⚠️  Add this to your hosting environment variables:');
       console.log(`   TELEGRAM_WEBHOOK_SECRET=${secret}\n`);
     }
   } else {

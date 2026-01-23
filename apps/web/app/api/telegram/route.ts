@@ -274,39 +274,115 @@ async function publishToStrapi(article: {
     throw new Error('Strapi configuration missing: STRAPI_URL or STRAPI_API_TOKEN not set');
   }
 
+  // Truncate description to 80 characters (Strapi schema maxLength)
+  const description = article.description.length > 80 
+    ? article.description.substring(0, 77) + '...' 
+    : article.description;
+
+  // Ensure title doesn't exceed 100 characters (Strapi schema maxLength)
+  const title = article.title.length > 100 
+    ? article.title.substring(0, 97) + '...' 
+    : article.title;
+
+  // Convert markdown content to blocks format (Strapi uses dynamiczone with blocks)
+  // Strapi expects blocks as an array with component structure
+  let blocks = [];
+  
+  if (article.content && article.content.trim().length > 0) {
+    // Split content into paragraphs and create rich-text blocks
+    const paragraphs = article.content.split(/\n\n+/).filter(p => p.trim().length > 0);
+    
+    blocks = paragraphs.map(paragraph => ({
+      __component: 'shared.rich-text',
+      body: paragraph.trim(),
+    }));
+    
+    // If no paragraphs found, create a single block with all content
+    if (blocks.length === 0) {
+      blocks = [{
+        __component: 'shared.rich-text',
+        body: article.content.trim(),
+      }];
+    }
+  } else {
+    // Fallback: create a block with description if no content
+    blocks = [{
+      __component: 'shared.rich-text',
+      body: article.description || 'Article content',
+    }];
+  }
+
+  const payload = {
+    data: {
+      title: title,
+      slug: article.slug,
+      description: description,
+      blocks: blocks,
+      // Note: status is not a field - Strapi uses draftAndPublish
+      // Articles are created as drafts by default
+    },
+  };
+
+  console.log('Publishing to Strapi:', {
+    url: `${STRAPI_URL}/api/articles`,
+    title: title.substring(0, 50),
+    description: description.substring(0, 50),
+    blocksCount: blocks.length,
+  });
+
   const response = await fetch(`${STRAPI_URL}/api/articles`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${STRAPI_API_TOKEN}`,
     },
-    body: JSON.stringify({
-      data: {
-        title: article.title,
-        slug: article.slug,
-        excerpt: article.description,
-        content: article.content,
-        status: 'draft',
-        aiGenerated: true,
-      },
-    }),
+    body: JSON.stringify(payload),
   });
 
-  const data = await response.json();
+  const responseText = await response.text();
+  let data;
+  
+  try {
+    data = JSON.parse(responseText);
+  } catch (e) {
+    throw new Error(`Failed to parse Strapi response: ${responseText.substring(0, 200)}`);
+  }
 
   if (!response.ok) {
     const errorMessage = data.error?.message || data.message || 'Unknown Strapi error';
-    const errorDetails = data.error?.details ? JSON.stringify(data.error.details) : '';
+    let errorDetails = '';
+    
+    if (data.error?.details) {
+      if (data.error.details.errors) {
+        errorDetails = data.error.details.errors.map((err: any) => 
+          `${err.path || 'unknown'}: ${err.message || 'validation error'}`
+        ).join(', ');
+      } else {
+        errorDetails = JSON.stringify(data.error.details);
+      }
+    }
+    
+    console.error('Strapi API error:', {
+      status: response.status,
+      message: errorMessage,
+      details: errorDetails,
+      fullResponse: data,
+    });
+    
     throw new Error(`Strapi API error (${response.status}): ${errorMessage}${errorDetails ? ` - ${errorDetails}` : ''}`);
   }
 
   if (!data.data?.documentId && !data.data?.id) {
     const errorMessage = data.error?.message || 'Failed to create article - no documentId returned';
     const errorDetails = data.error?.details ? JSON.stringify(data.error.details) : JSON.stringify(data);
+    console.error('Strapi response missing ID:', data);
     throw new Error(`Strapi error: ${errorMessage} - ${errorDetails}`);
   }
 
-  return { documentId: data.data.documentId || data.data.id };
+  const documentId = data.data.documentId || data.data.id;
+  console.log('Article created successfully:', { documentId, title: data.data.title });
+  
+  return { documentId };
 }
 
 /**
