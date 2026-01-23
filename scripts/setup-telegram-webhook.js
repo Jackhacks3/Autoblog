@@ -19,7 +19,7 @@ async function setWebhook(url, secret) {
 
   const body = {
     url: `${url}/api/telegram`,
-    allowed_updates: ['message'],
+    allowed_updates: ['message', 'callback_query'],
   };
 
   if (secret) {
