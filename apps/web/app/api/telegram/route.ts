@@ -270,6 +270,10 @@ async function publishToStrapi(article: {
   description: string;
   content: string;
 }): Promise<{ documentId: string }> {
+  if (!STRAPI_URL || !STRAPI_API_TOKEN) {
+    throw new Error('Strapi configuration missing: STRAPI_URL or STRAPI_API_TOKEN not set');
+  }
+
   const response = await fetch(`${STRAPI_URL}/api/articles`, {
     method: 'POST',
     headers: {
@@ -280,22 +284,29 @@ async function publishToStrapi(article: {
       data: {
         title: article.title,
         slug: article.slug,
-        description: article.description,
-        blocks: [{
-          __component: 'shared.rich-text',
-          body: article.content,
-        }],
+        excerpt: article.description,
+        content: article.content,
+        status: 'draft',
+        aiGenerated: true,
       },
     }),
   });
 
   const data = await response.json();
 
-  if (!data.data?.documentId) {
-    throw new Error(`Strapi error: ${JSON.stringify(data)}`);
+  if (!response.ok) {
+    const errorMessage = data.error?.message || data.message || 'Unknown Strapi error';
+    const errorDetails = data.error?.details ? JSON.stringify(data.error.details) : '';
+    throw new Error(`Strapi API error (${response.status}): ${errorMessage}${errorDetails ? ` - ${errorDetails}` : ''}`);
   }
 
-  return { documentId: data.data.documentId };
+  if (!data.data?.documentId && !data.data?.id) {
+    const errorMessage = data.error?.message || 'Failed to create article - no documentId returned';
+    const errorDetails = data.error?.details ? JSON.stringify(data.error.details) : JSON.stringify(data);
+    throw new Error(`Strapi error: ${errorMessage} - ${errorDetails}`);
+  }
+
+  return { documentId: data.data.documentId || data.data.id };
 }
 
 /**
@@ -484,7 +495,8 @@ ${STRAPI_URL}/admin
       await sendTelegramMessage(chatId, message);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      await sendTelegramMessage(chatId, `❌ Error: ${errorMsg}`);
+      console.error('Article generation error:', error);
+      await sendTelegramMessage(chatId, `❌ Error generating article: ${errorMsg}\n\nPlease try again or check the system status with /status`);
     }
   }
 }
