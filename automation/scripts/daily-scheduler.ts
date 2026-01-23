@@ -24,6 +24,7 @@ import {
   getTodaysPillar,
   getTopicsByPillar,
   getWeightedRandomTopic,
+  PILLAR_ROTATION,
   SEOTopic,
 } from '../src/config/seo-topics.js';
 import type { ArticleRequest, ArticleTemplate } from '../src/types/index.js';
@@ -195,8 +196,7 @@ async function main() {
     for (let i = 0; i < 7; i++) {
       const dayIndex = (today + i) % 7;
       const adjustedDay = dayIndex === 0 ? 6 : dayIndex - 1;
-      const pillarRotation = ['ai-automation', 'consulting', 'ai-automation', 'industry-news', 'consulting', 'ai-automation', 'digital-assets'];
-      const pillar = pillarRotation[adjustedDay];
+      const pillar = PILLAR_ROTATION[adjustedDay];
       const marker = i === 0 ? ' ← Today' : '';
       console.log(chalk.gray(`  ${days[adjustedDay]}: ${pillar}${marker}`));
     }

@@ -9,10 +9,8 @@
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
     "generate": "tsx scripts/generate-article.ts",
-    "batch": "tsx scripts/batch-generate.ts",
     "daily": "tsx scripts/daily-scheduler.ts",
     "daily:dry-run": "tsx scripts/daily-scheduler.ts --dry-run",
-    "telegram": "tsx scripts/telegram-bot.ts",
     "test": "vitest",
     "lint": "eslint src --ext .ts",
     "type-check": "tsc --noEmit"

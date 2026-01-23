@@ -65,7 +65,12 @@
       "mcp__vercel__list_projects",
       "mcp__vercel__list_deployments",
       "mcp__vercel__web_fetch_vercel_url",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "mcp__vercel__get_project",
+      "Bash(wc:*)",
+      "Bash(du:*)",
+      "Bash(Remove-Item -Path \"C:\\\\Users\\\\jgewi\\\\OneDrive\\\\Attachments\\\\Desktop\\\\AUTOBLOG\\\\automation\\\\scripts\\\\daily-post.ts\" -Force)",
+      "Bash(Remove-Item -Path \"C:\\\\Users\\\\jgewi\\\\OneDrive\\\\Attachments\\\\Desktop\\\\AUTOBLOG\\\\automation\\\\config\\\\daily-topics.json\" -Force)"
     ]
   }
 }

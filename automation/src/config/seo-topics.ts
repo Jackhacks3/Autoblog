@@ -17,254 +17,254 @@ export interface SEOTopic {
  * Topic bank organized by content pillar
  * Each topic is designed for SEO and relevance to AI/Automation consulting
  *
- * Pillars:
- * - ai-tools: AI Tools & Automation (how-to guides, tutorials)
- * - operational-efficiency: Operational Efficiency (frameworks, thought leadership)
- * - digital-transformation: Digital Transformation (strategic content)
- * - industry-insights: Industry Insights (news analysis, predictions)
+ * Pillars (must match content-pillars.ts):
+ * - ai-automation: AI & Automation (how-to guides, tutorials)
+ * - consulting: Consulting Insights (frameworks, thought leadership, strategic content)
+ * - industry-news: Industry News (news analysis, predictions)
+ * - digital-assets: Digital Assets (explainers, market analysis)
  */
 export const SEO_TOPIC_BANK: SEOTopic[] = [
-  // AI Tools & Automation Pillar - How-to guides and tutorials
+  // AI & Automation Pillar - How-to guides and tutorials
   {
     topic: 'How to Automate Your Business Workflows with AI in 2026',
-    pillar: 'ai-tools',
+    pillar: 'ai-automation',
     template: 'how-to-guide',
     keywords: ['workflow automation', 'AI automation', 'business efficiency'],
     priority: 'high',
   },
   {
     topic: 'Building Your First AI-Powered Chatbot: A Step-by-Step Guide',
-    pillar: 'ai-tools',
+    pillar: 'ai-automation',
     template: 'tutorial',
     keywords: ['AI chatbot', 'chatbot development', 'customer service AI'],
     priority: 'high',
   },
   {
     topic: 'Integrating Claude API into Your Enterprise Applications',
-    pillar: 'ai-tools',
+    pillar: 'ai-automation',
     template: 'how-to-guide',
     keywords: ['Claude API', 'enterprise AI', 'LLM integration'],
     priority: 'high',
   },
   {
     topic: 'Automating Document Processing with AI: Complete Guide',
-    pillar: 'ai-tools',
+    pillar: 'ai-automation',
     template: 'how-to-guide',
     keywords: ['document automation', 'AI document processing', 'OCR AI'],
     priority: 'medium',
   },
   {
     topic: 'How to Use AI for Email Marketing Automation',
-    pillar: 'ai-tools',
+    pillar: 'ai-automation',
     template: 'how-to-guide',
     keywords: ['email automation', 'AI marketing', 'marketing automation'],
     priority: 'medium',
   },
   {
     topic: 'Prompt Engineering Best Practices for Business Applications',
-    pillar: 'ai-tools',
+    pillar: 'ai-automation',
     template: 'tutorial',
     keywords: ['prompt engineering', 'AI prompts', 'LLM optimization'],
     priority: 'high',
   },
   {
     topic: 'Building AI-Powered Sales Pipelines That Convert',
-    pillar: 'ai-tools',
+    pillar: 'ai-automation',
     template: 'how-to-guide',
     keywords: ['AI sales', 'sales automation', 'lead scoring AI'],
     priority: 'high',
   },
   {
     topic: 'How to Automate Customer Support with AI Agents',
-    pillar: 'ai-tools',
+    pillar: 'ai-automation',
     template: 'how-to-guide',
     keywords: ['AI customer support', 'support automation', 'AI agents'],
     priority: 'medium',
   },
   {
     topic: 'Creating Automated Content Workflows with AI',
-    pillar: 'ai-tools',
+    pillar: 'ai-automation',
     template: 'tutorial',
     keywords: ['content automation', 'AI content', 'automated writing'],
     priority: 'medium',
   },
   {
     topic: 'AI-Powered Data Entry Automation: Eliminate Manual Work',
-    pillar: 'ai-tools',
+    pillar: 'ai-automation',
     template: 'how-to-guide',
     keywords: ['data entry automation', 'AI data processing', 'RPA AI'],
     priority: 'medium',
   },
   {
     topic: 'No-Code AI Automation Tools for Small Businesses',
-    pillar: 'ai-tools',
+    pillar: 'ai-automation',
     template: 'explainer',
     keywords: ['no-code automation', 'small business AI', 'AI tools'],
     priority: 'high',
   },
   {
     topic: 'GPT Integration Patterns for Enterprise Applications',
-    pillar: 'ai-tools',
+    pillar: 'ai-automation',
     template: 'tutorial',
     keywords: ['GPT integration', 'enterprise AI', 'OpenAI API'],
     priority: 'medium',
   },
 
-  // Operational Efficiency Pillar - Frameworks and process optimization
+  // Consulting Pillar - Frameworks, thought leadership, and process optimization
   {
     topic: 'Achieving 73% Reduction in Manual Operations with AI',
-    pillar: 'operational-efficiency',
+    pillar: 'consulting',
     template: 'framework',
     keywords: ['operational efficiency', 'reduce manual work', 'AI productivity'],
     priority: 'high',
   },
   {
     topic: 'The Complete Guide to Process Optimization with AI',
-    pillar: 'operational-efficiency',
+    pillar: 'consulting',
     template: 'how-to-guide',
     keywords: ['process optimization', 'workflow optimization', 'business operations'],
     priority: 'high',
   },
   {
     topic: 'Measuring ROI on AI Automation Investments',
-    pillar: 'operational-efficiency',
+    pillar: 'consulting',
     template: 'framework',
     keywords: ['AI ROI', 'automation ROI', 'technology investment'],
     priority: 'high',
   },
   {
     topic: 'Building a Business Case for AI Automation',
-    pillar: 'operational-efficiency',
+    pillar: 'consulting',
     template: 'thought-leadership',
     keywords: ['AI business case', 'automation justification', 'technology adoption'],
     priority: 'medium',
   },
   {
     topic: 'Team Productivity Gains Through Intelligent Automation',
-    pillar: 'operational-efficiency',
+    pillar: 'consulting',
     template: 'framework',
     keywords: ['team productivity', 'productivity gains', 'automation benefits'],
     priority: 'medium',
   },
   {
     topic: 'Streamlining Operations: An AI-First Approach',
-    pillar: 'operational-efficiency',
+    pillar: 'consulting',
     template: 'thought-leadership',
     keywords: ['streamline operations', 'AI-first', 'operational excellence'],
     priority: 'medium',
   },
   {
     topic: 'How to Identify Automation Opportunities in Your Business',
-    pillar: 'operational-efficiency',
+    pillar: 'consulting',
     template: 'how-to-guide',
     keywords: ['automation opportunities', 'process analysis', 'business automation'],
     priority: 'high',
   },
   {
     topic: 'Reducing Response Times by 2.5x with AI Automation',
-    pillar: 'operational-efficiency',
+    pillar: 'consulting',
     template: 'framework',
     keywords: ['response time', 'customer service efficiency', 'AI speed'],
     priority: 'medium',
   },
 
-  // Digital Transformation Pillar - Strategic and executive content
+  // Consulting Pillar (continued) - Strategic and executive content
   {
     topic: 'Digital Transformation in 2026: What CTOs Need to Know',
-    pillar: 'digital-transformation',
+    pillar: 'consulting',
     template: 'thought-leadership',
     keywords: ['digital transformation', 'CTO insights', 'enterprise technology'],
     priority: 'high',
   },
   {
     topic: 'Building an AI-First Organization: A Strategic Framework',
-    pillar: 'digital-transformation',
+    pillar: 'consulting',
     template: 'framework',
     keywords: ['AI strategy', 'organizational change', 'AI adoption'],
     priority: 'high',
   },
   {
     topic: 'AI Adoption Roadmap for Mid-Market Companies',
-    pillar: 'digital-transformation',
+    pillar: 'consulting',
     template: 'framework',
     keywords: ['AI implementation', 'mid-market AI', 'technology strategy'],
     priority: 'medium',
   },
   {
     topic: 'Managing Change When Implementing AI in Your Organization',
-    pillar: 'digital-transformation',
+    pillar: 'consulting',
     template: 'thought-leadership',
     keywords: ['change management', 'AI adoption', 'organizational change'],
     priority: 'medium',
   },
   {
     topic: 'Scaling Operations with AI: A Strategic Guide',
-    pillar: 'digital-transformation',
+    pillar: 'consulting',
     template: 'framework',
     keywords: ['scaling operations', 'AI scale', 'business growth'],
     priority: 'high',
   },
   {
     topic: 'Creating Your Technology Roadmap for AI Integration',
-    pillar: 'digital-transformation',
+    pillar: 'consulting',
     template: 'framework',
     keywords: ['technology roadmap', 'AI integration', 'digital strategy'],
     priority: 'medium',
   },
   {
     topic: 'Gaining Competitive Advantage Through AI Automation',
-    pillar: 'digital-transformation',
+    pillar: 'consulting',
     template: 'thought-leadership',
     keywords: ['competitive advantage', 'AI differentiation', 'market leadership'],
     priority: 'high',
   },
   {
     topic: 'Enterprise Modernization: From Legacy to AI-Powered',
-    pillar: 'digital-transformation',
+    pillar: 'consulting',
     template: 'market-analysis',
     keywords: ['enterprise modernization', 'legacy systems', 'digital upgrade'],
     priority: 'medium',
   },
 
-  // Industry Insights Pillar - News analysis and predictions
+  // Industry News Pillar - News analysis and predictions
   {
     topic: 'Top AI Trends Shaping Business in 2026',
-    pillar: 'industry-insights',
+    pillar: 'industry-news',
     template: 'news-analysis',
     keywords: ['AI trends', 'business AI', 'technology trends'],
     priority: 'high',
   },
   {
     topic: 'The Future of Work: AI and Human Collaboration',
-    pillar: 'industry-insights',
+    pillar: 'industry-news',
     template: 'prediction',
     keywords: ['future of work', 'AI workplace', 'human-AI collaboration'],
     priority: 'high',
   },
   {
     topic: 'AI Market Analysis: Where Businesses Are Investing',
-    pillar: 'industry-insights',
+    pillar: 'industry-news',
     template: 'market-analysis',
     keywords: ['AI market', 'AI investment', 'enterprise spending'],
     priority: 'medium',
   },
   {
     topic: 'SaaS and AI: The Convergence Reshaping Business Software',
-    pillar: 'industry-insights',
+    pillar: 'industry-news',
     template: 'market-analysis',
     keywords: ['SaaS trends', 'AI software', 'business technology'],
     priority: 'medium',
   },
   {
     topic: 'Enterprise Technology Predictions for 2026',
-    pillar: 'industry-insights',
+    pillar: 'industry-news',
     template: 'prediction',
     keywords: ['enterprise technology', 'tech predictions', 'business tech'],
     priority: 'high',
   },
   {
     topic: 'How AI Is Changing Business Operations Across Industries',
-    pillar: 'industry-insights',
+    pillar: 'industry-news',
     template: 'news-analysis',
     keywords: ['AI business impact', 'industry transformation', 'AI applications'],
     priority: 'medium',
@@ -335,16 +335,16 @@ function getDayOfYear(): number {
 
 /**
  * Pillar rotation order for balanced content
- * Emphasizes ai-tools (core business focus)
+ * Emphasizes ai-automation (core business focus)
  */
 export const PILLAR_ROTATION = [
-  'ai-tools',              // Monday
-  'operational-efficiency', // Tuesday
-  'ai-tools',              // Wednesday
-  'industry-insights',     // Thursday
-  'digital-transformation', // Friday
-  'ai-tools',              // Saturday
-  'operational-efficiency', // Sunday
+  'ai-automation',  // Monday
+  'consulting',     // Tuesday
+  'ai-automation',  // Wednesday
+  'industry-news',  // Thursday
+  'consulting',     // Friday
+  'ai-automation',  // Saturday
+  'consulting',     // Sunday
 ];
 
 /**

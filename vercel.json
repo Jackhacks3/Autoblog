@@ -6,7 +6,7 @@
   "regions": ["iad1"],
   "crons": [
     {
-      "path": "/api/cron/generate-daily",
+      "path": "/api/cron/daily-post",
       "schedule": "0 6 * * *"
     }
   ],
