@@ -145,39 +145,50 @@ Return JSON only (no markdown code blocks):
 }
 
 /**
- * Get category ID from Strapi
+ * Get category documentId from Strapi
  */
 async function getCategoryId(slug: string): Promise<string | null> {
-  const response = await fetch(
-    `${STRAPI_URL}/api/categories?filters[slug][$eq]=${slug}`,
-    {
+  try {
+    const q = new URLSearchParams({ 'filters[slug][$eq]': slug });
+    const response = await fetch(`${STRAPI_URL}/api/categories?${q}`, {
       headers: { Authorization: `Bearer ${STRAPI_API_TOKEN}` },
-    }
-  );
-
-  const data = await response.json();
-  return data.data?.[0]?.documentId || null;
+    });
+    const data = await response.json();
+    return data.data?.[0]?.documentId || null;
+  } catch {
+    return null;
+  }
 }
 
 /**
- * Publish article to Strapi
+ * Publish article to Strapi (payload matches Strapi Cloud schema)
  */
 async function publishToStrapi(
   article: { title: string; slug: string; description: string; content: string },
   categoryId: string | null
 ): Promise<{ documentId: string; slug: string }> {
-  const body: Record<string, unknown> = {
-    title: article.title,
-    slug: article.slug,
-    description: article.description,
-    blocks: [{
-      __component: 'shared.rich-text',
-      body: article.content,
-    }],
-  };
+  const description = article.description.length > 80
+    ? article.description.slice(0, 77) + '...'
+    : article.description;
+  const title = article.title.length > 100
+    ? article.title.slice(0, 97) + '...'
+    : article.title;
 
+  const paragraphs = article.content.trim()
+    ? article.content.split(/\n\n+/).filter((p) => p.trim().length > 0)
+    : [];
+  const blocks = paragraphs.length > 0
+    ? paragraphs.map((p) => ({ __component: 'shared.rich-text' as const, body: p.trim() }))
+    : [{ __component: 'shared.rich-text' as const, body: article.description || 'Article content' }];
+
+  const dataBody: Record<string, unknown> = {
+    title,
+    slug: article.slug,
+    description,
+    blocks,
+  };
   if (categoryId) {
-    body.category = categoryId;
+    dataBody.category = categoryId; // many-to-one: use documentId directly
   }
 
   const response = await fetch(`${STRAPI_URL}/api/articles`, {
@@ -186,12 +197,12 @@ async function publishToStrapi(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${STRAPI_API_TOKEN}`,
     },
-    body: JSON.stringify({ data: body }),
+    body: JSON.stringify({ data: dataBody }),
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Strapi error: ${error}`);
+    const err = await response.text();
+    throw new Error(`Strapi error: ${err}`);
   }
 
   const data = await response.json();
