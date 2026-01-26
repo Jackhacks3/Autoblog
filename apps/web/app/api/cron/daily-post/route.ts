@@ -1,19 +1,28 @@
 /**
  * Daily Post Cron API Route
  *
- * Generates and publishes a daily blog post.
- * Can be triggered by:
- * - Vercel Cron
- * - GitHub Actions
- * - Manual HTTP request
+ * Generates and publishes a daily blog post with a hero image.
+ * Runs on schedule (Vercel Cron). No local execution required.
+ *
+ * Flow: topic -> article (Claude) -> image prompt (Claude) -> image (DALL-E)
+ *       -> upload to Strapi -> create article with cover.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+
+export const maxDuration = 300;
 
 const CRON_SECRET = process.env.CRON_SECRET;
 const STRAPI_URL = process.env.STRAPI_URL;
 const STRAPI_API_TOKEN = process.env.STRAPI_API_TOKEN;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+const IMAGE_PROMPT_SYSTEM = `You generate DALL-E 3 prompts for professional blog hero images. Given a structured article (JSON), output exactly one image prompt—nothing else, no explanation, no markdown.
+
+Rules: Match the article's topic and key ideas. Use title, description, content.
+Style: Modern, minimal, corporate. Colors: blues, teals, whites. No text, logos, faces, hands, clutter, or dark imagery.
+Output only the raw DALL-E prompt, 2–4 sentences.`;
 
 // Topic pool for daily posts
 const TOPICS = {
@@ -49,38 +58,27 @@ const TOPICS = {
   ],
 };
 
-/**
- * Select random topic from pool
- */
 function selectTopic(): { topic: string; pillar: string } {
   const pillars = Object.keys(TOPICS) as (keyof typeof TOPICS)[];
-  const weights = [6, 3, 1]; // ai-automation, consulting, industry-news
-
-  // Weighted random selection
+  const weights = [6, 3, 1];
   const totalWeight = weights.reduce((a, b) => a + b, 0);
   let random = Math.random() * totalWeight;
-
   let selectedPillar: keyof typeof TOPICS = 'ai-automation';
   for (let i = 0; i < pillars.length; i++) {
-    const weight = weights[i] ?? 0;
-    const pillar = pillars[i];
-    random -= weight;
-    if (random <= 0 && pillar) {
-      selectedPillar = pillar;
+    const w = weights[i] ?? 0;
+    const p = pillars[i];
+    random -= w;
+    if (random <= 0 && p) {
+      selectedPillar = p;
       break;
     }
   }
-
   const topics = TOPICS[selectedPillar];
-  const randomIndex = Math.floor(Math.random() * topics.length);
-  const topic = topics[randomIndex] ?? topics[0] ?? 'AI Automation Best Practices';
-
+  const idx = Math.floor(Math.random() * topics.length);
+  const topic = topics[idx] ?? topics[0] ?? 'AI Automation Best Practices';
   return { topic, pillar: selectedPillar };
 }
 
-/**
- * Generate article using Claude API
- */
 async function generateArticle(topic: string, pillar: string): Promise<{
   title: string;
   slug: string;
@@ -93,7 +91,7 @@ async function generateArticle(topic: string, pillar: string): Promise<{
     'industry-news': 'news-analysis',
   };
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -124,48 +122,128 @@ Return JSON only (no markdown code blocks):
   "slug": "url-friendly-slug",
   "description": "Brief meta description under 80 chars",
   "content": "Full article in Markdown format"
-}`
+}`,
       }],
     }),
   });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Claude API error: ${error}`);
-  }
+  if (!res.ok) throw new Error(`Claude API error: ${await res.text()}`);
 
-  const data = await response.json();
-  const text = data.content[0].text;
-
-  // Extract JSON
+  const data = await res.json();
+  const text = data.content?.[0]?.text ?? '';
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error('Failed to parse article JSON');
-
   return JSON.parse(jsonMatch[0]);
 }
 
-/**
- * Get category documentId from Strapi
- */
+async function generateImagePromptFromArticle(article: {
+  title: string;
+  description: string;
+  content: string;
+}): Promise<string> {
+  const payload = {
+    title: article.title,
+    description: article.description,
+    contentSnippet: article.content.replace(/\s+/g, ' ').trim().slice(0, 1200),
+  };
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_API_KEY!,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 512,
+      temperature: 0.4,
+      messages: [{
+        role: 'user',
+        content: `Article (JSON):\n\`\`\`json\n${JSON.stringify(payload, null, 2)}\n\`\`\`\nGenerate a single DALL-E 3 image prompt. Output only the prompt.`,
+      }],
+      system: IMAGE_PROMPT_SYSTEM,
+    }),
+  });
+
+  if (!res.ok) throw new Error(`Claude image-prompt error: ${await res.text()}`);
+
+  const data = await res.json();
+  const raw = (data.content?.[0]?.text ?? '').trim().replace(/^["']|["']$/g, '');
+  if (!raw || raw.length < 20) throw new Error('Empty or too-short image prompt');
+  return raw;
+}
+
+async function generateImageDallE(prompt: string): Promise<string> {
+  const res = await fetch('https://api.openai.com/v1/images/generations', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'dall-e-3',
+      prompt,
+      n: 1,
+      size: '1792x1024',
+      quality: 'standard',
+      style: 'natural',
+    }),
+  });
+
+  if (!res.ok) throw new Error(`DALL-E error: ${await res.text()}`);
+
+  const data = await res.json();
+  const url = data.data?.[0]?.url;
+  if (!url) throw new Error('No image URL from DALL-E');
+  return url;
+}
+
+async function uploadImageToStrapi(
+  imageUrl: string,
+  filename: string,
+  altText: string
+): Promise<{ id: number; documentId: string }> {
+  const imgRes = await fetch(imageUrl);
+  if (!imgRes.ok) throw new Error(`Failed to fetch image: ${imgRes.status}`);
+
+  const buf = await imgRes.arrayBuffer();
+  const form = new FormData();
+  const blob = new Blob([buf], { type: 'image/png' });
+  form.append('files', blob, filename);
+  form.append('fileInfo', JSON.stringify({ alternativeText: altText, caption: altText }));
+
+  const uploadRes = await fetch(`${STRAPI_URL}/api/upload`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${STRAPI_API_TOKEN}` },
+    body: form,
+  });
+
+  if (!uploadRes.ok) throw new Error(`Strapi upload error: ${await uploadRes.text()}`);
+
+  const uploaded = (await uploadRes.json()) as Array<{ id: number; documentId: string }>;
+  const file = uploaded?.[0];
+  if (!file?.id || !file?.documentId) throw new Error('No media returned from Strapi upload');
+  return { id: file.id, documentId: file.documentId };
+}
+
 async function getCategoryId(slug: string): Promise<string | null> {
   try {
     const q = new URLSearchParams({ 'filters[slug][$eq]': slug });
-    const response = await fetch(`${STRAPI_URL}/api/categories?${q}`, {
+    const res = await fetch(`${STRAPI_URL}/api/categories?${q}`, {
       headers: { Authorization: `Bearer ${STRAPI_API_TOKEN}` },
     });
-    const data = await response.json();
-    return data.data?.[0]?.documentId || null;
+    const data = await res.json();
+    return data.data?.[0]?.documentId ?? null;
   } catch {
     return null;
   }
 }
 
-/**
- * Publish article to Strapi (payload matches Strapi Cloud schema)
- */
 async function publishToStrapi(
   article: { title: string; slug: string; description: string; content: string },
-  categoryId: string | null
+  categoryId: string | null,
+  coverDocumentId: string | null
 ): Promise<{ documentId: string; slug: string }> {
   const description = article.description.length > 80
     ? article.description.slice(0, 77) + '...'
@@ -187,11 +265,10 @@ async function publishToStrapi(
     description,
     blocks,
   };
-  if (categoryId) {
-    dataBody.category = categoryId; // many-to-one: use documentId directly
-  }
+  if (categoryId) dataBody.category = categoryId;
+  if (coverDocumentId) dataBody.cover = { connect: [coverDocumentId] };
 
-  const response = await fetch(`${STRAPI_URL}/api/articles`, {
+  const res = await fetch(`${STRAPI_URL}/api/articles`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -200,40 +277,54 @@ async function publishToStrapi(
     body: JSON.stringify({ data: dataBody }),
   });
 
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Strapi error: ${err}`);
-  }
+  if (!res.ok) throw new Error(`Strapi error: ${await res.text()}`);
 
-  const data = await response.json();
-  return {
-    documentId: data.data.documentId,
-    slug: data.data.slug,
-  };
+  const data = await res.json();
+  return { documentId: data.data.documentId, slug: data.data.slug };
 }
 
-/**
- * POST/GET handler for cron trigger
- */
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  // Verify cron secret
   const authHeader = request.headers.get('authorization');
   if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    // Select topic
     const { topic, pillar } = selectTopic();
-
-    // Generate article
     const article = await generateArticle(topic, pillar);
-
-    // Get category
     const categoryId = await getCategoryId(pillar);
 
-    // Publish
-    const { documentId, slug } = await publishToStrapi(article, categoryId);
+    let coverDocumentId: string | null = null;
+
+    if (OPENAI_API_KEY) {
+      try {
+        const imagePrompt = await generateImagePromptFromArticle(article);
+        const imageUrl = await generateImageDallE(imagePrompt);
+        const filename = `${article.slug}-hero-${Date.now()}.png`;
+        const altText = `Hero image for ${article.title}`;
+        const media = await uploadImageToStrapi(imageUrl, filename, altText);
+        coverDocumentId = media.documentId;
+      } catch (imgErr) {
+        console.warn('Image generation or upload failed, publishing without cover:', imgErr);
+      }
+    } else {
+      console.warn('OPENAI_API_KEY not set; skipping hero image');
+    }
+
+    const { documentId, slug } = await publishToStrapi(article, categoryId, coverDocumentId);
+
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    const revalidationSecret = process.env.REVALIDATION_SECRET;
+    if (siteUrl) {
+      try {
+        const revalidateUrl = revalidationSecret
+          ? `${siteUrl}/api/revalidate?secret=${encodeURIComponent(revalidationSecret)}&path=/blog`
+          : `${siteUrl}/api/revalidate?path=/blog`;
+        await fetch(revalidateUrl, { method: 'POST' });
+      } catch {
+        /* ignore */
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -242,6 +333,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         slug,
         documentId,
         pillar,
+        hasCover: !!coverDocumentId,
       },
       timestamp: new Date().toISOString(),
     });
@@ -254,5 +346,4 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 }
 
-// Also support POST for flexibility
 export { GET as POST };
