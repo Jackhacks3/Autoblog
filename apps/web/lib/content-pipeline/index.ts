@@ -204,22 +204,36 @@ export async function publishArticle(
     description,
     blocks,
   };
-  if (categoryId) dataBody.category = categoryId;
+  if (categoryId) dataBody.category = { connect: [categoryId] };
   if (coverDocumentId) dataBody.cover = { connect: [coverDocumentId] };
 
-  // Use ?status=published so the post appears on the blog (list filters by published).
-  // Body must not include status—Strapi Cloud rejects it; query param is for D&P.
   const createUrl = `${STRAPI_URL}/api/articles?status=published`;
-  const res = await fetch(createUrl, {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${STRAPI_API_TOKEN}`,
+  };
+
+  let res = await fetch(createUrl, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${STRAPI_API_TOKEN}`,
-    },
+    headers,
     body: JSON.stringify({ data: dataBody }),
   });
 
-  if (!res.ok) throw new Error(`Strapi error: ${await res.text()}`);
+  if (!res.ok) {
+    const errText = await res.text();
+    if (/Invalid relations/i.test(errText) && (categoryId || coverDocumentId)) {
+      delete dataBody.category;
+      delete dataBody.cover;
+      res = await fetch(createUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ data: dataBody }),
+      });
+      if (!res.ok) throw new Error(`Strapi error: ${await res.text()}`);
+    } else {
+      throw new Error(`Strapi error: ${errText}`);
+    }
+  }
 
   const data = await res.json();
   return { documentId: data.data.documentId, slug: data.data.slug };
