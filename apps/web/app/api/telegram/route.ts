@@ -2,21 +2,17 @@
  * Telegram Webhook API Route
  *
  * Receives messages from Telegram and processes them.
- * Works on Vercel serverless functions with stateless design.
+ * Uses shared content pipeline (same as cron): article + image + publish + revalidate.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { runContentPipeline } from '@/lib/content-pipeline';
 
-// Telegram Bot Token
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ALLOWED_USERS = process.env.TELEGRAM_ALLOWED_USERS?.split(',').map(id => parseInt(id.trim())).filter(Boolean) || [];
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
-
-// Strapi config
 const STRAPI_URL = process.env.STRAPI_URL;
 const STRAPI_API_TOKEN = process.env.STRAPI_API_TOKEN;
-
-// AI config
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 interface TelegramUpdate {
@@ -210,182 +206,6 @@ Return JSON only:
 }
 
 /**
- * Generate article using Claude API
- */
-async function generateArticle(topic: string, pillar: string, template: string, keywords: string[]): Promise<{
-  title: string;
-  slug: string;
-  description: string;
-  content: string;
-}> {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_API_KEY!,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 4096,
-      messages: [{
-        role: 'user',
-        content: `Write a blog article on this topic:
-
-Topic: ${topic}
-Content Pillar: ${pillar}
-Article Type: ${template}
-Keywords to include: ${keywords.join(', ')}
-
-Return JSON only:
-{
-  "title": "SEO title 50-60 chars",
-  "slug": "url-friendly-slug",
-  "description": "Brief description under 80 chars",
-  "content": "Full article in Markdown format, 1000-1500 words"
-}`
-      }],
-    }),
-  });
-
-  const data = await response.json();
-
-  if (!data.content?.[0]?.text) {
-    throw new Error(`Claude API error: ${JSON.stringify(data)}`);
-  }
-
-  const text = data.content[0].text;
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('Failed to parse article response');
-
-  return JSON.parse(jsonMatch[0]);
-}
-
-/**
- * Publish article to Strapi
- */
-async function publishToStrapi(article: {
-  title: string;
-  slug: string;
-  description: string;
-  content: string;
-}): Promise<{ documentId: string }> {
-  if (!STRAPI_URL || !STRAPI_API_TOKEN) {
-    throw new Error('Strapi configuration missing: STRAPI_URL or STRAPI_API_TOKEN not set');
-  }
-
-  // Truncate description to 80 characters (Strapi schema maxLength)
-  const description = article.description.length > 80 
-    ? article.description.substring(0, 77) + '...' 
-    : article.description;
-
-  // Ensure title doesn't exceed 100 characters (Strapi schema maxLength)
-  const title = article.title.length > 100 
-    ? article.title.substring(0, 97) + '...' 
-    : article.title;
-
-  // Convert markdown content to blocks format (Strapi uses dynamiczone with blocks)
-  // Strapi expects blocks as an array with component structure
-  let blocks = [];
-  
-  if (article.content && article.content.trim().length > 0) {
-    // Split content into paragraphs and create rich-text blocks
-    const paragraphs = article.content.split(/\n\n+/).filter(p => p.trim().length > 0);
-    
-    blocks = paragraphs.map(paragraph => ({
-      __component: 'shared.rich-text',
-      body: paragraph.trim(),
-    }));
-    
-    // If no paragraphs found, create a single block with all content
-    if (blocks.length === 0) {
-      blocks = [{
-        __component: 'shared.rich-text',
-        body: article.content.trim(),
-      }];
-    }
-  } else {
-    // Fallback: create a block with description if no content
-    blocks = [{
-      __component: 'shared.rich-text',
-      body: article.description || 'Article content',
-    }];
-  }
-
-  const payload = {
-    data: {
-      title: title,
-      slug: article.slug,
-      description: description,
-      blocks: blocks,
-      // Note: status is not a field - Strapi uses draftAndPublish
-      // Articles are created as drafts by default
-    },
-  };
-
-  console.log('Publishing to Strapi:', {
-    url: `${STRAPI_URL}/api/articles`,
-    title: title.substring(0, 50),
-    description: description.substring(0, 50),
-    blocksCount: blocks.length,
-  });
-
-  const response = await fetch(`${STRAPI_URL}/api/articles`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${STRAPI_API_TOKEN}`,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const responseText = await response.text();
-  let data;
-  
-  try {
-    data = JSON.parse(responseText);
-  } catch (e) {
-    throw new Error(`Failed to parse Strapi response: ${responseText.substring(0, 200)}`);
-  }
-
-  if (!response.ok) {
-    const errorMessage = data.error?.message || data.message || 'Unknown Strapi error';
-    let errorDetails = '';
-    
-    if (data.error?.details) {
-      if (data.error.details.errors) {
-        errorDetails = data.error.details.errors.map((err: any) => 
-          `${err.path || 'unknown'}: ${err.message || 'validation error'}`
-        ).join(', ');
-      } else {
-        errorDetails = JSON.stringify(data.error.details);
-      }
-    }
-    
-    console.error('Strapi API error:', {
-      status: response.status,
-      message: errorMessage,
-      details: errorDetails,
-      fullResponse: data,
-    });
-    
-    throw new Error(`Strapi API error (${response.status}): ${errorMessage}${errorDetails ? ` - ${errorDetails}` : ''}`);
-  }
-
-  if (!data.data?.documentId && !data.data?.id) {
-    const errorMessage = data.error?.message || 'Failed to create article - no documentId returned';
-    const errorDetails = data.error?.details ? JSON.stringify(data.error.details) : JSON.stringify(data);
-    console.error('Strapi response missing ID:', data);
-    throw new Error(`Strapi error: ${errorMessage} - ${errorDetails}`);
-  }
-
-  const documentId = data.data.documentId || data.data.id;
-  console.log('Article created successfully:', { documentId, title: data.data.title });
-  
-  return { documentId };
-}
-
-/**
  * Handle /start command
  */
 async function handleStart(chatId: number): Promise<void> {
@@ -542,37 +362,40 @@ async function handleCallbackQuery(
 
     try {
       await sendTypingAction(chatId);
-      await sendTelegramMessage(chatId, '✍️ Generating article... (this takes ~30 seconds)');
+      await sendTelegramMessage(chatId, '✍️ Generating article and hero image... (this takes ~30–60 seconds)');
 
-      const article = await generateArticle(
-        pending.topic,
-        pending.pillar,
-        pending.template,
-        pending.keywords
-      );
+      const result = await runContentPipeline({
+        topic: pending.topic,
+        pillar: pending.pillar,
+        template: pending.template,
+        keywords: pending.keywords,
+        generateImage: true,
+      });
 
-      await sendTypingAction(chatId);
-      await sendTelegramMessage(chatId, '📤 Publishing to CMS...');
+      if (!result.success) {
+        await sendTelegramMessage(chatId, `❌ Error: ${result.error}\n\nTry again or check /status`);
+        return;
+      }
 
-      const { documentId } = await publishToStrapi(article);
+      const article = result.article!;
+      const coverNote = result.hasCover ? '\n🖼 Hero image attached.' : '\n(No hero image; OPENAI_API_KEY may be unset.)';
 
+      const adminLink = STRAPI_URL ? `\nReview in Strapi: ${STRAPI_URL}/admin` : '';
       const message = `
 <b>✅ Article Published!</b>
 
 <b>Title:</b> ${escapeHtml(article.title)}
 <b>Slug:</b> ${article.slug}
-<b>ID:</b> ${documentId}
-
-Your article is now in Strapi (as draft). Review and publish it in the admin panel.
-
-${STRAPI_URL}/admin
+<b>ID:</b> ${result.documentId}
+${coverNote}
+Same pipeline as scheduled posts.${adminLink}
       `.trim();
 
       await sendTelegramMessage(chatId, message);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       console.error('Article generation error:', error);
-      await sendTelegramMessage(chatId, `❌ Error generating article: ${errorMsg}\n\nPlease try again or check the system status with /status`);
+      await sendTelegramMessage(chatId, `❌ Error: ${errorMsg}\n\nTry again or check /status`);
     }
   }
 }
