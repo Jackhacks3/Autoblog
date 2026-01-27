@@ -177,11 +177,38 @@ export async function getCategoryId(pillar: string): Promise<string | null> {
   }
 }
 
+async function updateArticleCover(
+  articleDocumentId: string,
+  mediaId: number,
+  mediaDocumentId: string
+): Promise<boolean> {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${STRAPI_API_TOKEN}`,
+  };
+  const tries: Array<{ cover: unknown }> = [
+    { cover: mediaId },
+    { cover: mediaDocumentId },
+    { cover: { connect: [mediaDocumentId] } },
+  ];
+  for (const payload of tries) {
+    const res = await fetch(
+      `${STRAPI_URL}/api/articles/${articleDocumentId}?status=published`,
+      {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ data: payload }),
+      }
+    );
+    if (res.ok) return true;
+  }
+  return false;
+}
+
 export async function publishArticle(
   article: GeneratedArticle,
-  pillar: string,
-  coverDocumentId: string | null
-): Promise<{ documentId: string; slug: string; coverActuallyAttached: boolean }> {
+  pillar: string
+): Promise<{ documentId: string; slug: string }> {
   const description = article.description.length > 80
     ? article.description.slice(0, 77) + '...'
     : article.description;
@@ -211,16 +238,8 @@ export async function publishArticle(
     blocks,
   };
 
-  type Attempt = { category?: string; cover?: string; featuredImage?: string };
+  type Attempt = { category?: string };
   const attempts: Attempt[] = [];
-  if (categoryId && coverDocumentId) {
-    attempts.push({ category: categoryId, cover: coverDocumentId });
-    attempts.push({ category: categoryId, featuredImage: coverDocumentId });
-  }
-  if (coverDocumentId) {
-    attempts.push({ cover: coverDocumentId });
-    attempts.push({ featuredImage: coverDocumentId });
-  }
   if (categoryId) attempts.push({ category: categoryId });
   attempts.push({});
 
@@ -228,8 +247,6 @@ export async function publishArticle(
   for (const att of attempts) {
     const dataBody = { ...baseBody } as Record<string, unknown>;
     if (att.category) dataBody.category = { connect: [att.category] };
-    if (att.cover) dataBody.cover = { connect: [att.cover] };
-    if (att.featuredImage) dataBody.featuredImage = { connect: [att.featuredImage] };
 
     const res = await fetch(createUrl, {
       method: 'POST',
@@ -239,11 +256,7 @@ export async function publishArticle(
 
     if (res.ok) {
       const data = await res.json();
-      return {
-        documentId: data.data.documentId,
-        slug: data.data.slug,
-        coverActuallyAttached: !!(att.cover || att.featuredImage),
-      };
+      return { documentId: data.data.documentId, slug: data.data.slug };
     }
 
     lastErr = await res.text();
@@ -293,7 +306,7 @@ export async function runContentPipeline(
   try {
     const article = await generateArticle({ topic, pillar, template, keywords });
 
-    let coverDocumentId: string | null = null;
+    let coverMedia: { id: number; documentId: string } | null = null;
 
     if (generateImage && OPENAI_API_KEY) {
       try {
@@ -301,18 +314,24 @@ export async function runContentPipeline(
         const imageUrl = await generateImageDallE(imagePrompt);
         const filename = `${article.slug}-hero-${Date.now()}.png`;
         const altText = `Hero image for ${article.title}`;
-        const media = await uploadImageToStrapi(imageUrl, filename, altText);
-        coverDocumentId = media.documentId;
+        coverMedia = await uploadImageToStrapi(imageUrl, filename, altText);
       } catch (e) {
         console.warn('Image generation or upload failed, publishing without cover:', e);
       }
     }
 
-    const { documentId, slug, coverActuallyAttached } = await publishArticle(
-      article,
-      pillar,
-      coverDocumentId
-    );
+    const { documentId, slug } = await publishArticle(article, pillar);
+    let coverActuallyAttached = false;
+    if (coverMedia) {
+      coverActuallyAttached = await updateArticleCover(
+        documentId,
+        coverMedia.id,
+        coverMedia.documentId
+      );
+      if (!coverActuallyAttached) {
+        console.warn('Could not attach cover to article; cover image remains in Media Library.');
+      }
+    }
     await runRevalidation(slug);
 
     return {
