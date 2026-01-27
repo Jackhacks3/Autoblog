@@ -57,7 +57,7 @@ function selectTopic(): { topic: string; pillar: string } {
       break;
     }
   }
-  const topics = TOPICS[pillar];
+  const topics = TOPICS[pillar] ?? TOPICS['ai-automation']!;
   const topic = topics[Math.floor(Math.random() * topics.length)] ?? topics[0] ?? 'AI Automation Best Practices';
   return { topic, pillar };
 }
