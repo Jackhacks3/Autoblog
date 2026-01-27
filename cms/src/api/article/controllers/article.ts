@@ -5,9 +5,7 @@
 import { factories } from '@strapi/strapi';
 
 export default factories.createCoreController('api::article.article', ({ strapi }) => ({
-  // Override find to add custom logic
   async find(ctx) {
-    // Only return published articles by default for public API
     if (!ctx.state.user) {
       const existingFilters = ctx.query.filters || {};
       ctx.query.filters = {
@@ -15,8 +13,22 @@ export default factories.createCoreController('api::article.article', ({ strapi 
         status: 'published',
       };
     }
-
     const { data, meta } = await super.find(ctx);
     return { data, meta };
+  },
+
+  async create(ctx) {
+    await super.create(ctx);
+    const data = ctx.body?.data;
+    const wantPublish = ctx.query?.status === 'published';
+    if (wantPublish && data?.documentId) {
+      try {
+        await strapi.documents('api::article.article').publish({
+          documentId: data.documentId,
+        });
+      } catch (e) {
+        strapi.log.warn('article create: publish failed', e);
+      }
+    }
   },
 }));

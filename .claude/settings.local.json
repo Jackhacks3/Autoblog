@@ -44,7 +44,7 @@
       "Bash(git push:*)",
       "Bash(vercel:*)",
       "Bash(git commit:*)",
-      "WebFetch(domain:blog.optaimum.com)",
+      "WebFetch(domain:blogs.optaimum.com)",
       "Bash(git checkout:*)",
       "WebFetch(domain:cms.optaimum.com)",
       "WebFetch(domain:docs.strapi.io)",

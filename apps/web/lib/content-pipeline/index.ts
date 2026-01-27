@@ -207,7 +207,10 @@ export async function publishArticle(
   if (categoryId) dataBody.category = categoryId;
   if (coverDocumentId) dataBody.cover = { connect: [coverDocumentId] };
 
-  const res = await fetch(`${STRAPI_URL}/api/articles`, {
+  // Use ?status=published so the post appears on the blog (list filters by published).
+  // Body must not include status—Strapi Cloud rejects it; query param is for D&P.
+  const createUrl = `${STRAPI_URL}/api/articles?status=published`;
+  const res = await fetch(createUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -222,18 +225,23 @@ export async function publishArticle(
   return { documentId: data.data.documentId, slug: data.data.slug };
 }
 
-export async function runRevalidation(): Promise<void> {
+async function revalidatePath(path: string): Promise<void> {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
   if (!siteUrl) return;
   const secret = process.env.REVALIDATION_SECRET;
   const url = secret
-    ? `${siteUrl}/api/revalidate?secret=${encodeURIComponent(secret)}&path=/blog`
-    : `${siteUrl}/api/revalidate?path=/blog`;
+    ? `${siteUrl}/api/revalidate?secret=${encodeURIComponent(secret)}&path=${encodeURIComponent(path)}`
+    : `${siteUrl}/api/revalidate?path=${encodeURIComponent(path)}`;
   try {
     await fetch(url, { method: 'POST' });
   } catch {
     /* ignore */
   }
+}
+
+export async function runRevalidation(slug?: string): Promise<void> {
+  await revalidatePath('/blog');
+  if (slug) await revalidatePath(`/blog/${slug}`);
 }
 
 /**
@@ -271,7 +279,7 @@ export async function runContentPipeline(
     }
 
     const { documentId, slug } = await publishArticle(article, pillar, coverDocumentId);
-    await runRevalidation();
+    await runRevalidation(slug);
 
     return {
       success: true,
