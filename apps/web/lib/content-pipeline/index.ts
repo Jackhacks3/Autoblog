@@ -181,7 +181,7 @@ export async function publishArticle(
   article: GeneratedArticle,
   pillar: string,
   coverDocumentId: string | null
-): Promise<{ documentId: string; slug: string }> {
+): Promise<{ documentId: string; slug: string; coverActuallyAttached: boolean }> {
   const description = article.description.length > 80
     ? article.description.slice(0, 77) + '...'
     : article.description;
@@ -198,45 +198,61 @@ export async function publishArticle(
 
   const categoryId = await getCategoryId(pillar);
 
-  const dataBody: Record<string, unknown> = {
-    title,
-    slug: article.slug,
-    description,
-    blocks,
-  };
-  if (categoryId) dataBody.category = { connect: [categoryId] };
-  if (coverDocumentId) dataBody.cover = { connect: [coverDocumentId] };
-
   const createUrl = `${STRAPI_URL}/api/articles?status=published`;
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${STRAPI_API_TOKEN}`,
   };
 
-  let res = await fetch(createUrl, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ data: dataBody }),
-  });
+  const baseBody: Record<string, unknown> = {
+    title,
+    slug: article.slug,
+    description,
+    blocks,
+  };
 
-  if (!res.ok) {
-    const errText = await res.text();
-    if (/Invalid relations/i.test(errText) && (categoryId || coverDocumentId)) {
-      delete dataBody.category;
-      delete dataBody.cover;
-      res = await fetch(createUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ data: dataBody }),
-      });
-      if (!res.ok) throw new Error(`Strapi error: ${await res.text()}`);
-    } else {
-      throw new Error(`Strapi error: ${errText}`);
+  type Attempt = { category?: string; cover?: string; featuredImage?: string };
+  const attempts: Attempt[] = [];
+  if (categoryId && coverDocumentId) {
+    attempts.push({ category: categoryId, cover: coverDocumentId });
+    attempts.push({ category: categoryId, featuredImage: coverDocumentId });
+  }
+  if (coverDocumentId) {
+    attempts.push({ cover: coverDocumentId });
+    attempts.push({ featuredImage: coverDocumentId });
+  }
+  if (categoryId) attempts.push({ category: categoryId });
+  attempts.push({});
+
+  let lastErr = '';
+  for (const att of attempts) {
+    const dataBody = { ...baseBody } as Record<string, unknown>;
+    if (att.category) dataBody.category = { connect: [att.category] };
+    if (att.cover) dataBody.cover = { connect: [att.cover] };
+    if (att.featuredImage) dataBody.featuredImage = { connect: [att.featuredImage] };
+
+    const res = await fetch(createUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ data: dataBody }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        documentId: data.data.documentId,
+        slug: data.data.slug,
+        coverActuallyAttached: !!(att.cover || att.featuredImage),
+      };
+    }
+
+    lastErr = await res.text();
+    if (!/Invalid relations/i.test(lastErr)) {
+      throw new Error(`Strapi error: ${lastErr}`);
     }
   }
 
-  const data = await res.json();
-  return { documentId: data.data.documentId, slug: data.data.slug };
+  throw new Error(`Strapi error: ${lastErr}`);
 }
 
 async function revalidatePath(path: string): Promise<void> {
@@ -292,7 +308,11 @@ export async function runContentPipeline(
       }
     }
 
-    const { documentId, slug } = await publishArticle(article, pillar, coverDocumentId);
+    const { documentId, slug, coverActuallyAttached } = await publishArticle(
+      article,
+      pillar,
+      coverDocumentId
+    );
     await runRevalidation(slug);
 
     return {
@@ -300,7 +320,7 @@ export async function runContentPipeline(
       article,
       documentId,
       slug,
-      hasCover: !!coverDocumentId,
+      hasCover: coverActuallyAttached,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
