@@ -1,13 +1,15 @@
 /**
  * Daily Post Cron API Route
  *
- * Uses shared content pipeline. Same article shape, image, and flow as Telegram.
+ * Invoked by Vercel Cron at scheduled time (see vercel.json). Vercel sends
+ * Authorization: Bearer <CRON_SECRET>. Uses shared content pipeline.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { runContentPipeline } from '@/lib/content-pipeline';
 
 export const maxDuration = 300;
+export const dynamic = 'force-dynamic';
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
@@ -64,11 +66,14 @@ function selectTopic(): { topic: string; pillar: string } {
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const authHeader = request.headers.get('authorization');
-  if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
+  if (!CRON_SECRET || authHeader !== `Bearer ${CRON_SECRET}`) {
+    console.warn('Daily post cron: missing or invalid CRON_SECRET');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  console.log('[cron] Daily post scheduled run started');
   const { topic, pillar } = selectTopic();
+
   const result = await runContentPipeline({
     topic,
     pillar,
@@ -76,13 +81,19 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   });
 
   if (!result.success) {
-    console.error('Daily post error:', result.error);
+    console.error('[cron] Daily post error:', result.error);
     return NextResponse.json(
       { error: result.error, timestamp: new Date().toISOString() },
       { status: 500 }
     );
   }
 
+  console.log(
+    '[cron] Daily post published:',
+    result.slug,
+    'hasCover:',
+    result.hasCover
+  );
   return NextResponse.json({
     success: true,
     article: {
