@@ -37,7 +37,7 @@ export default function IntakePage() {
           Request a Blog Post
         </h1>
         <p className="text-gray-600 text-lg">
-          Have a topic you'd like us to cover? Submit your idea and we'll turn it into a
+          Have a topic you&apos;d like us to cover? Submit your idea and we&apos;ll turn it into a
           published article.
         </p>
       </div>
@@ -50,7 +50,7 @@ export default function IntakePage() {
             </svg>
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">Request received</h2>
-          <p className="text-gray-600 mb-6">We'll review your topic and get it published soon.</p>
+          <p className="text-gray-600 mb-6">We&apos;ll review your topic and get it published soon.</p>
           <button
             onClick={() => setStatus('idle')}
             className="px-6 py-2 border-2 border-gray-900 text-sm font-semibold hover:bg-gray-100 transition-colors"
@@ -113,7 +113,7 @@ export default function IntakePage() {
           {/* Email */}
           <div>
             <label htmlFor="email" className="block text-sm font-semibold text-gray-900 mb-2">
-              Your email <span className="text-gray-400 font-normal">(optional — we'll notify you when it's live)</span>
+              Your email <span className="text-gray-400 font-normal">(optional &mdash; we&apos;ll notify you when it&apos;s live)</span>
             </label>
             <input
               id="email"
