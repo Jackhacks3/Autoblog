@@ -6,6 +6,7 @@
 
 import { generateArticle } from '../generators/article-generator.js';
 import { generateHeroImage, generateImageFilename } from '../generators/image-generator.js';
+import { humanizeContent, humanizeSnippet } from '../services/humanizer.js';
 import { uploadImageFromUrl } from '../clients/strapi-media.js';
 import {
   createArticle,
@@ -68,7 +69,54 @@ export async function runPipeline(
     return { success: false, errors, stages };
   }
 
-  // Stage 2: Generate Hero Image (optional)
+  // Stage 2: Humanize Article Content
+  if (article) {
+    const humanizeStart = Date.now();
+    try {
+      const bodyResult = humanizeContent(article.content);
+      const excerptResult = humanizeSnippet(article.excerpt);
+      const descResult = humanizeSnippet(article.description);
+      const metaTitleResult = humanizeSnippet(article.seo.metaTitle);
+      const metaDescResult = humanizeSnippet(article.seo.metaDescription);
+
+      article = {
+        ...article,
+        content: bodyResult.humanized,
+        excerpt: excerptResult.humanized,
+        description: descResult.humanized,
+        seo: {
+          metaTitle: metaTitleResult.humanized,
+          metaDescription: metaDescResult.humanized,
+        },
+      };
+
+      const totalChanges =
+        bodyResult.changes.length +
+        excerptResult.changes.length +
+        descResult.changes.length +
+        metaTitleResult.changes.length +
+        metaDescResult.changes.length;
+
+      stages.push({
+        name: 'humanize-content',
+        status: 'completed',
+        duration: Date.now() - humanizeStart,
+        ...(totalChanges > 0 ? { note: `${totalChanges} humanisation rule(s) applied` } : {}),
+      });
+    } catch (error) {
+      stages.push({
+        name: 'humanize-content',
+        status: 'failed',
+        duration: Date.now() - humanizeStart,
+      });
+      errors.push(error as Error);
+      // Non-fatal: continue with un-humanized content
+    }
+  } else {
+    stages.push({ name: 'humanize-content', status: 'skipped', duration: 0 });
+  }
+
+  // Stage 3: Generate Hero Image (optional)
   if (options.generateImage !== false && article) {
     const imageStart = Date.now();
     try {
@@ -115,7 +163,7 @@ export async function runPipeline(
     };
   }
 
-  // Stage 3: Upload Image to Strapi
+  // Stage 4: Upload Image to Strapi
   if (image && article) {
     const uploadStart = Date.now();
     try {
@@ -144,7 +192,7 @@ export async function runPipeline(
     });
   }
 
-  // Stage 4: Publish to Strapi CMS
+  // Stage 5: Publish to Strapi CMS
   if (article) {
     const publishStart = Date.now();
     try {

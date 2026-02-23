@@ -151,6 +151,7 @@ export interface PipelineResult {
     name: string;
     status: 'completed' | 'failed' | 'skipped';
     duration: number;
+    note?: string;
   }[];
 }
 

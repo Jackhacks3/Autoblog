@@ -95,7 +95,8 @@ program
           for (const stage of result.stages) {
             const icon = stage.status === 'completed' ? '✓' : stage.status === 'skipped' ? '○' : '✗';
             const color = stage.status === 'completed' ? chalk.green : stage.status === 'skipped' ? chalk.gray : chalk.red;
-            console.log(color(`  ${icon} ${stage.name} (${stage.duration}ms)`));
+            const note = stage.note ? chalk.dim(` — ${stage.note}`) : '';
+            console.log(color(`  ${icon} ${stage.name} (${stage.duration}ms)`) + note);
           }
         } else {
           spinner.fail('Content pipeline failed');
