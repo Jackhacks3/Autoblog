@@ -13,8 +13,8 @@ interface Props {
   params: { slug: string };
 }
 
-// Revalidate every 60 seconds
-export const revalidate = 60;
+// Revalidate every hour — article content rarely changes after publish
+export const revalidate = 3600;
 
 // Generate static paths for all published articles
 export async function generateStaticParams() {

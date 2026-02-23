@@ -10,8 +10,8 @@ export const metadata: Metadata = {
   description: 'Explore our latest articles on AI, digital assets, and technology consulting.',
 };
 
-// Revalidate every 60 seconds
-export const revalidate = 60;
+// Revalidate every 5 minutes
+export const revalidate = 300;
 
 interface PageProps {
   searchParams: { category?: string; tag?: string; page?: string };
