@@ -25,7 +25,7 @@ import type {
 } from './types';
 
 // Configuration
-const STRAPI_URL = process.env.STRAPI_URL || 'http://localhost:1337';
+const STRAPI_URL = process.env.STRAPI_URL || 'https://methodical-star-1c2c084d0b.strapiapp.com';
 const STRAPI_API_TOKEN = process.env.STRAPI_API_TOKEN;
 
 // Revalidation times for ISR (in seconds)
