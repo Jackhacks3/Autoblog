@@ -46,7 +46,8 @@ module.exports = {
         DEFAULT: 'hsl(var(--border))',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-space-grotesk)', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
       typography: (theme) => ({
@@ -54,6 +55,10 @@ module.exports = {
           css: {
             maxWidth: '75ch',
             color: theme('colors.gray.700'),
+            'h1, h2, h3, h4, h5, h6': {
+              fontFamily: 'var(--font-space-grotesk), sans-serif',
+              letterSpacing: '-0.02em',
+            },
             a: {
               color: theme('colors.accent.600'),
               '&:hover': {
