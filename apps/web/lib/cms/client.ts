@@ -49,23 +49,17 @@ async function strapiFetch<T>(
     ...options.headers,
   };
 
-  try {
-    const response = await fetch(url, {
-      ...options,
-      headers,
-      next: { revalidate },
-    });
+  const response = await fetch(url, {
+    ...options,
+    headers,
+    next: { revalidate },
+  });
 
-    if (!response.ok) {
-      console.error(`Strapi API error: ${response.status} ${response.statusText}`);
-      throw new Error(`Strapi API error: ${response.status}`);
-    }
-
-    return response.json();
-  } catch (error) {
-    console.error('Failed to fetch from Strapi:', error);
-    throw error;
+  if (!response.ok) {
+    throw new Error(`Strapi API error: ${response.status} ${response.statusText}`);
   }
+
+  return response.json();
 }
 
 // ============================================================================
@@ -244,26 +238,7 @@ export async function getArticles(
   query.set('pagination[page]', String(page));
   query.set('pagination[pageSize]', String(pageSize));
   query.set('sort', sort);
-  // Scoped populate for listing cards — skip heavy blocks/content to reduce payload
-  query.set('populate[cover][fields][0]', 'url');
-  query.set('populate[cover][fields][1]', 'alternativeText');
-  query.set('populate[cover][fields][2]', 'width');
-  query.set('populate[cover][fields][3]', 'height');
-  query.set('populate[cover][populate][formats]', 'thumbnail,small');
-  query.set('populate[featuredImage][fields][0]', 'url');
-  query.set('populate[featuredImage][fields][1]', 'alternativeText');
-  query.set('populate[featuredImage][fields][2]', 'width');
-  query.set('populate[featuredImage][fields][3]', 'height');
-  query.set('populate[featuredImage][populate][formats]', 'thumbnail,small');
-  query.set('populate[author][fields][0]', 'name');
-  query.set('populate[author][fields][1]', 'documentId');
-  query.set('populate[author][populate][avatar][fields][0]', 'url');
-  query.set('populate[author][populate][avatar][fields][1]', 'alternativeText');
-  query.set('populate[category][fields][0]', 'name');
-  query.set('populate[category][fields][1]', 'slug');
-  query.set('populate[category][fields][2]', 'color');
-  query.set('populate[tags][fields][0]', 'name');
-  query.set('populate[tags][fields][1]', 'slug');
+  query.set('populate', '*');
 
   // Only filter by status if explicitly requested (Strapi Cloud doesn't have status field)
   if (status && status !== 'published') {
@@ -363,18 +338,7 @@ export async function getRelatedArticles(
   query.set('sort', 'publishedAt:desc');
   query.set('filters[category][slug][$eq]', categorySlug);
   query.set('filters[slug][$ne]', currentSlug);
-  // Scoped populate — related cards don't need full content
-  query.set('populate[cover][fields][0]', 'url');
-  query.set('populate[cover][fields][1]', 'alternativeText');
-  query.set('populate[cover][fields][2]', 'width');
-  query.set('populate[cover][fields][3]', 'height');
-  query.set('populate[cover][populate][formats]', 'thumbnail,small');
-  query.set('populate[featuredImage][fields][0]', 'url');
-  query.set('populate[featuredImage][fields][1]', 'alternativeText');
-  query.set('populate[category][fields][0]', 'name');
-  query.set('populate[category][fields][1]', 'slug');
-  query.set('populate[category][fields][2]', 'color');
-  query.set('populate[author][fields][0]', 'name');
+  query.set('populate', '*');
 
   try {
     const response = await strapiFetch<StrapiResponse<StrapiArticle[]>>(
