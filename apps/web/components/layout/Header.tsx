@@ -16,13 +16,8 @@ export function Header() {
       <nav className="container-wide">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gray-900 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">O</span>
-            </div>
-            <span className="text-xl font-bold text-gray-900 tracking-tight">
-              Optaimum
-            </span>
+          <Link href="/" className="text-2xl font-bold text-black" style={{ fontFamily: 'var(--font-space-grotesk), sans-serif' }}>
+            OPTAIMUM
           </Link>
 
           {/* Navigation Tabs */}
