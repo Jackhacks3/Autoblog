@@ -16,8 +16,9 @@ export function Header() {
       <nav className="container-wide">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
+          
           <Link href="/" className="text-2xl font-bold text-black" style={{ fontFamily: 'var(--font-space-grotesk), sans-serif' }}>
-            OPTAIMUM
+          <div>OPTAIMUM</div>
           </Link>
 
           {/* Navigation Tabs */}
